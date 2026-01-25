@@ -89,7 +89,7 @@ const App: React.FC = () => {
   return (
     <div className="flex min-h-screen bg-[#fcfdfe] text-slate-900 overflow-x-hidden">
       {/* Sidebar */}
-      <aside className={`fixed inset-y-0 right-0 z-50 w-72 bg-white shadow-2xl transition-transform duration-300 transform lg:relative lg:translate-x-0 ${isSidebarOpen ? 'translate-x-0' : 'translate-x-full'}`}>
+      <aside className={`fixed inset-y-0 right-0 z-50 w-72 bg-white shadow-2xl transition-transform duration-300 transform lg:relative lg:translate-x-0 no-print ${isSidebarOpen ? 'translate-x-0' : 'translate-x-full'}`}>
         <div className="flex flex-col h-full">
           <div className="p-8 border-b border-gray-50">
              <div className="bg-blue-600 w-12 h-12 rounded-2xl flex items-center justify-center text-white mb-4 shadow-xl shadow-blue-100">
@@ -132,7 +132,7 @@ const App: React.FC = () => {
       </aside>
 
       {/* Main Container */}
-      <div className="flex-1 flex flex-col min-w-0 h-screen overflow-y-auto custom-scrollbar">
+      <div className="flex-1 flex flex-col min-w-0 h-screen overflow-y-auto custom-scrollbar print:h-auto print:overflow-visible">
         <header className="sticky top-0 z-40 bg-[#fcfdfe]/80 backdrop-blur-xl border-b border-gray-50 px-8 py-6 flex justify-between items-center no-print text-right">
           <div className="flex items-center gap-4">
             <button onClick={() => setSidebarOpen(!isSidebarOpen)} className="lg:hidden p-2 text-slate-400 hover:text-blue-600">
@@ -153,7 +153,7 @@ const App: React.FC = () => {
           )}
         </header>
 
-        <main className="p-8 max-w-[1600px] mx-auto w-full flex-1">
+        <main className="p-8 max-w-[1600px] mx-auto w-full flex-1 print:p-0 print:max-w-none">
           {activeTab === 'dashboard' && <Dashboard state={state} setState={setState} />}
           {activeTab === 'seasons' && <SeasonManager state={state} setState={setState} />}
           {activeTab === 'delete-center' && <DeleteCenter state={state} setState={setState} />}
