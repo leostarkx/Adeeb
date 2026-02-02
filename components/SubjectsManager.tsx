@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { Season, Subject, GRADE_NAMES } from '../types';
-import { Plus, Trash2, Book, Layers } from 'lucide-react';
+import { Plus, Trash2, Book, Layers, UserCheck } from 'lucide-react';
 
 interface Props {
   season: Season;
@@ -42,9 +42,32 @@ const SubjectsManager: React.FC<Props> = ({ season, onUpdate }) => {
 
   const removeSection = (name: string) => {
     if (!confirm('حذف الشعبة؟')) return;
+    const currentAdvisors = { ...(season.sectionAdvisors || {}) };
+    if (currentAdvisors[selectedGrade]) {
+      delete currentAdvisors[selectedGrade][name];
+    }
     onUpdate({
-      sections: { ...season.sections, [selectedGrade]: (season.sections[selectedGrade] || []).filter(s => s !== name) }
+      sections: { ...season.sections, [selectedGrade]: (season.sections[selectedGrade] || []).filter(s => s !== name) },
+      sectionAdvisors: currentAdvisors
     });
+  };
+
+  const setSectionAdvisor = (secName: string, teacherId: string) => {
+    const currentAdvisors = { ...(season.sectionAdvisors || {}) };
+    if (!currentAdvisors[selectedGrade]) currentAdvisors[selectedGrade] = {};
+    
+    if (teacherId === "") {
+      delete currentAdvisors[selectedGrade][secName];
+    } else {
+      currentAdvisors[selectedGrade][secName] = teacherId;
+    }
+    
+    onUpdate({ sectionAdvisors: currentAdvisors });
+  };
+
+  const getAdvisorName = (secName: string) => {
+    const teacherId = season.sectionAdvisors?.[selectedGrade]?.[secName];
+    return season.teachers.find(t => t.id === teacherId)?.name || 'بدون مرشد';
   };
 
   return (
@@ -64,11 +87,31 @@ const SubjectsManager: React.FC<Props> = ({ season, onUpdate }) => {
             <input type="text" value={sectionName} onChange={e => setSectionName(e.target.value)} placeholder="اسم الشعبة..." className="flex-1 px-5 py-3 border border-gray-100 rounded-2xl outline-none bg-gray-50 focus:bg-white transition-all" />
             <button type="button" onClick={addSection} className="bg-blue-600 text-white px-8 py-3 rounded-2xl font-bold hover:bg-blue-700 h-[52px] shadow-lg"><Plus size={20} /></button>
           </div>
-          <div className="flex flex-wrap gap-3">
+          <div className="space-y-4">
             {(season.sections?.[selectedGrade] || []).map(sec => (
-              <div key={sec} className="px-5 py-2.5 bg-blue-50 border border-blue-100 text-blue-700 rounded-2xl font-black text-sm flex items-center gap-4 group">
-                <span>{sec}</span>
-                <button type="button" onClick={() => removeSection(sec)} className="text-blue-300 hover:text-red-500 transition-colors"><Trash2 size={16} className="pointer-events-none" /></button>
+              <div key={sec} className="p-5 bg-blue-50/50 border border-blue-100 rounded-[1.5rem] flex flex-col gap-4 group transition-all hover:bg-blue-50">
+                <div className="flex justify-between items-center">
+                   <div className="flex items-center gap-3">
+                     <span className="w-10 h-10 bg-white rounded-xl flex items-center justify-center font-black text-blue-600 shadow-sm">{sec}</span>
+                     <span className="font-black text-slate-800">شعبة {sec}</span>
+                   </div>
+                   <button type="button" onClick={() => removeSection(sec)} className="p-2 text-slate-300 hover:text-red-500 transition-colors"><Trash2 size={18} /></button>
+                </div>
+                
+                <div className="flex items-center gap-4 border-t border-blue-100/50 pt-3">
+                  <div className="p-2 bg-white rounded-lg text-blue-500"><UserCheck size={16} /></div>
+                  <div className="flex-1">
+                    <p className="text-[10px] font-black text-slate-400 mb-1">مرشد الصف (اختياري)</p>
+                    <select 
+                      value={season.sectionAdvisors?.[selectedGrade]?.[sec] || ""} 
+                      onChange={(e) => setSectionAdvisor(sec, e.target.value)}
+                      className="w-full bg-transparent font-black text-xs text-slate-700 outline-none cursor-pointer"
+                    >
+                      <option value="">-- اضغط لاختيار مرشد --</option>
+                      {season.teachers.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                    </select>
+                  </div>
+                </div>
               </div>
             ))}
           </div>
@@ -84,7 +127,7 @@ const SubjectsManager: React.FC<Props> = ({ season, onUpdate }) => {
             {(season.subjects[selectedGrade] || []).map(sub => (
               <div key={sub.id} className="p-4 rounded-2xl bg-gray-50 border border-gray-100 flex items-center justify-between group hover:bg-white hover:border-emerald-200 transition-all">
                 <span className="font-black text-gray-700 text-sm">{sub.name}</span>
-                <button type="button" onClick={() => removeSubject(sub.id)} className="text-gray-300 hover:text-red-500 transition-colors"><Trash2 size={18} className="pointer-events-none" /></button>
+                <button type="button" onClick={() => removeSubject(sub.id)} className="text-gray-300 hover:text-red-500 transition-colors"><Trash2 size={18} /></button>
               </div>
             ))}
           </div>

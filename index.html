@@ -8,94 +8,111 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;700;900&display=swap" rel="stylesheet">
     <style>
+      :root {
+        --primary: #2563eb;
+        --bg-main: #f8fafc;
+        --card-bg: #ffffff;
+        --text-main: #1e293b;
+        --text-muted: #64748b;
+        --border-color: #e2e8f0;
+        --shadow-color: rgba(0, 0, 0, 0.05);
+      }
+
+      [data-theme='midnight'] {
+        --shadow-color: rgba(0, 0, 0, 0.5);
+      }
+
       body {
         font-family: 'Tajawal', sans-serif;
-        background-color: #fcfdfe;
+        background-color: var(--bg-main);
+        color: var(--text-main);
+        transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        overflow-x: hidden;
       }
       
-      .custom-scrollbar::-webkit-scrollbar {
-        width: 6px;
+      .bg-white { background-color: var(--card-bg) !important; }
+      .text-slate-900, .text-slate-800 { color: var(--text-main) !important; }
+      .text-slate-400, .text-slate-500 { color: var(--text-muted) !important; }
+      .border-gray-50, .border-gray-100, .border-slate-100 { border-color: var(--border-color) !important; }
+      
+      .bg-blue-600 { background-color: var(--primary) !important; }
+      .hover\:bg-blue-700:hover { background-color: var(--primary) !important; filter: brightness(1.1); }
+      .text-blue-600 { color: var(--primary) !important; }
+      
+      /* تحسين البطاقات والظلال */
+      .card-shadow {
+        box-shadow: 0 10px 25px -5px var(--shadow-color), 0 8px 10px -6px var(--shadow-color);
       }
-      .custom-scrollbar::-webkit-scrollbar-track {
-        background: transparent;
+
+      .bg-blue-50 { background-color: color-mix(in srgb, var(--primary), transparent 92%) !important; color: var(--primary); }
+      .bg-emerald-50 { background-color: #ecfdf5 !important; }
+      .bg-purple-50 { background-color: #f5f3ff !important; }
+      .bg-amber-50 { background-color: #fffbeb !important; }
+      .bg-red-50 { background-color: #fef2f2 !important; }
+
+      input, select, textarea {
+        color: var(--text-main) !important;
+        background-color: var(--card-bg) !important;
+        border-color: var(--border-color) !important;
+        transition: border-color 0.2s, box-shadow 0.2s;
       }
+
+      input:focus, select:focus {
+        border-color: var(--primary) !important;
+        box-shadow: 0 0 0 4px color-mix(in srgb, var(--primary), transparent 85%);
+      }
+
+      .custom-scrollbar::-webkit-scrollbar { width: 8px; }
+      .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
       .custom-scrollbar::-webkit-scrollbar-thumb {
-        background: #e2e8f0;
-        border-radius: 10px;
-      }
-      .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-        background: #cbd5e1;
+        background: var(--border-color);
+        border-radius: 20px;
+        border: 2px solid var(--bg-main);
       }
 
       @media print {
-        /* إخفاء كل العناصر غير المطلوبة */
-        .no-print, aside, header, .fixed, button { 
-          display: none !important; 
-        }
-        
-        /* تصفير الحواف لضمان ملء الصفحة */
-        body, html, #root { 
-          background: white !important; 
-          margin: 0 !important;
-          padding: 0 !important;
-          height: auto !important;
-          overflow: visible !important;
-        }
-
-        /* تحويل الحاويات المرنة إلى عرض عادي للطباعة */
-        .flex-1, .flex {
-          display: block !important;
-          height: auto !important;
-          overflow: visible !important;
-        }
-
-        main {
-          padding: 0 !important;
-          margin: 0 !important;
-          width: 100% !important;
-          max-width: none !important;
-        }
-
-        /* تنسيق الصفحة A4 */
-        @page { 
-          size: A4; 
-          margin: 1.5cm; 
-        }
-
-        .print-shadow-none { box-shadow: none !important; border: 1px solid #eee !important; }
-        
-        /* منع قطع الجداول في منتصف الصفحة */
-        table { page-break-inside: auto; }
-        tr { page-break-inside: avoid; page-break-after: auto; }
+        .no-print { display: none !important; }
+        body, html, #root { background: white !important; color: black !important; }
       }
 
-      /* Fancy inputs shadow */
-      input:focus, select:focus {
-        box-shadow: 0 10px 15px -3px rgba(59, 130, 246, 0.08);
+      .animate-in { 
+        animation: slideIn 0.5s cubic-bezier(0.16, 1, 0.3, 1);
       }
-
-      /* Animation for tabs */
-      .animate-in {
-        animation: slideIn 0.4s ease-out;
-      }
+      
       @keyframes slideIn {
-        from { opacity: 0; transform: translateY(10px); }
+        from { opacity: 0; transform: translateY(20px); }
         to { opacity: 1; transform: translateY(0); }
       }
+
+      /* تنسيق الهيدر والسايدبار للوضع الليلي */
+      [data-theme='midnight'] aside, [data-theme='midnight'] header {
+        background-color: rgba(15, 23, 42, 0.8) !important;
+        backdrop-filter: blur(12px);
+      }
+
+      [data-theme='midnight'] nav button:not(.bg-blue-600) {
+        color: #94a3b8 !important;
+      }
+
+      [data-theme='midnight'] nav button:hover:not(.bg-blue-600) {
+        background-color: rgba(255, 255, 255, 0.05) !important;
+        color: white !important;
+      }
     </style>
-  <script type="importmap">
-{
-  "imports": {
-    "react/": "https://esm.sh/react@^19.2.3/",
-    "react": "https://esm.sh/react@^19.2.3",
-    "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
-    "lucide-react": "https://esm.sh/lucide-react@^0.563.0",
-    "recharts": "https://esm.sh/recharts@^3.7.0"
-  }
-}
-</script>
-</head>
-  <body class="bg-gray-50 text-gray-900">
+    <script type="importmap">
+    {
+      "imports": {
+        "react": "https://esm.sh/react@19.0.0",
+        "react/": "https://esm.sh/react@19.0.0/",
+        "react-dom": "https://esm.sh/react-dom@19.0.0",
+        "react-dom/": "https://esm.sh/react-dom@19.0.0/",
+        "lucide-react": "https://esm.sh/lucide-react@0.468.0?external=react",
+        "recharts": "https://esm.sh/recharts@2.15.0?external=react,react-dom"
+      }
+    }
+    </script>
+  </head>
+  <body>
     <div id="root"></div>
   </body>
 </html>

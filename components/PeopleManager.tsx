@@ -1,18 +1,11 @@
 
 import React, { useState, useMemo } from 'react';
-import { Season, Student, Teacher, GRADE_NAMES } from '../types';
+import { Season, Student, Teacher, GRADE_NAMES, TeacherAssignment, Subject } from '../types';
 import { 
-  Plus, 
-  Trash2, 
-  GraduationCap, 
-  Users, 
-  UserPlus, 
-  Search, 
-  LayoutGrid,
-  Info,
-  ChevronLeft,
-  ArrowLeft,
-  UserCircle2
+  Plus, Trash2, GraduationCap, Users, UserPlus, Search, Edit2, X,
+  Baby, Home, Phone, Briefcase, FileText, Hash, UserX,
+  BookOpen, Layers, Contact2, CheckCircle2, Filter, CheckSquare,
+  ClipboardList, MapPin, Smartphone, UserCircle
 } from 'lucide-react';
 
 interface Props {
@@ -21,382 +14,348 @@ interface Props {
 }
 
 const PeopleManager: React.FC<Props> = ({ season, onUpdate }) => {
-  const [activeSubTab, setActiveSubTab] = useState<'students' | 'teachers'>('students');
+  const [activeSubTab, setActiveSubTab] = useState<'students' | 'teachers' | 'audit'>('students');
   const [selectedGrade, setSelectedGrade] = useState<number | null>(null);
   const [selectedSection, setSelectedSection] = useState<string | null>(null);
-  const [studentSearch, setStudentSearch] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
   
-  // حالات إضافة طالب
-  const [studentName, setStudentName] = useState('');
-  const [studentGrade, setStudentGrade] = useState<number>(1);
-  const [studentSection, setStudentSection] = useState<string>('');
+  // Student State
+  const [editingStudentId, setEditingStudentId] = useState<string | null>(null);
+  const [studentForm, setStudentForm] = useState<Partial<Student>>({
+    name: '', grade: 1, section: '', status: 'active', birthDate: '', 
+    parentPhone: '', address: '', parentJob: '',
+    registerNumber: '', pageNumber: '', recordNumber: ''
+  });
 
-  // حالات إضافة معلم
-  const [teacherName, setTeacherName] = useState('');
-  const [selectedTeacherId, setSelectedTeacherId] = useState<string | null>(null);
-  const [assignGrade, setAssignGrade] = useState<number>(1);
-  const [assignSection, setAssignSection] = useState<string>('');
-  const [assignSubject, setAssignSubject] = useState<string>('');
+  // Teacher State
+  const [editingTeacherId, setEditingTeacherId] = useState<string | null>(null);
+  const [teacherForm, setTeacherForm] = useState<Partial<Teacher>>({ name: '', specialization: '', phone: '' });
+  const [managingAssignmentsId, setManagingAssignmentsId] = useState<string | null>(null);
+  const [newAssignment, setNewAssignment] = useState<TeacherAssignment>({ gradeId: 1, sectionName: '', subjectId: '' });
 
-  // حساب إحصائيات الطلاب
-  const stats = useMemo(() => {
-    const gradeCounts: Record<number, number> = {};
-    const sectionCounts: Record<string, number> = {}; // "grade-section" -> count
+  const getAgeStatus = (birthDate?: string) => {
+    if (!birthDate || !season.minBirthYear || !season.maxBirthYear) return 'normal';
+    const birthYear = new Date(birthDate).getFullYear();
+    // إذا كان المواليد أكبر من أصغر سنة مسموحة (مثلاً مواليد 2020 وأصغر سنة 2018) فهو أصغر من السن
+    if (birthYear > season.minBirthYear) return 'accelerated'; 
+    // إذا كان المواليد أصغر من أكبر سنة مسموحة (مثلاً مواليد 2010 وأكبر سنة 2012) فهو أكبر من السن
+    if (birthYear < season.maxBirthYear) return 'overage';
+    return 'normal';
+  };
+
+  const filteredStudents = useMemo(() => {
+    let list = season.students || [];
+    if (activeSubTab === 'audit') {
+      list = list.filter(s => getAgeStatus(s.birthDate) !== 'normal');
+    } else {
+      if (selectedGrade) list = list.filter(s => s.grade === selectedGrade);
+      if (selectedSection) list = list.filter(s => s.section === selectedSection);
+    }
     
-    [1, 2, 3, 4, 5, 6].forEach(g => {
-      const gradeStudents = season.students.filter(s => s.grade === g);
-      gradeCounts[g] = gradeStudents.length;
-      
-      (season.sections[g] || []).forEach(sec => {
-        sectionCounts[`${g}-${sec}`] = gradeStudents.filter(s => s.section === sec).length;
-      });
-    });
+    if (searchTerm) {
+      list = list.filter(s => s.name.includes(searchTerm) || s.registerNumber?.includes(searchTerm));
+    }
     
-    return { gradeCounts, sectionCounts };
-  }, [season.students, season.sections]);
+    return [...list].sort((a, b) => a.name.localeCompare(b.name, 'ar'));
+  }, [season.students, selectedGrade, selectedSection, searchTerm, activeSubTab, season.minBirthYear, season.maxBirthYear]);
 
-  // الطلاب المعروضون بناءً على الفلاتر
-  const displayedStudents = useMemo(() => {
-    let list = season.students;
-    if (selectedGrade) list = list.filter(s => s.grade === selectedGrade);
-    if (selectedSection) list = list.filter(s => s.section === selectedSection);
-    if (studentSearch) list = list.filter(s => s.name.includes(studentSearch));
-    return list.sort((a, b) => a.name.localeCompare(b.name, 'ar'));
-  }, [season.students, selectedGrade, selectedSection, studentSearch]);
-
-  const addStudent = () => {
-    if (!studentName.trim() || !studentSection) {
-      alert('يرجى كتابة الاسم واختيار الشعبة');
+  const saveStudent = () => {
+    if (!studentForm.name?.trim() || !studentForm.section || !studentForm.birthDate) {
+      alert('يرجى إكمال الاسم والشعبة وتاريخ الميلاد');
       return;
     }
-    const newStudent: Student = { 
-      id: Date.now().toString(), 
-      name: studentName, 
-      grade: studentGrade, 
-      section: studentSection 
-    };
-    onUpdate({ students: [...(season.students || []), newStudent] });
-    setStudentName('');
-  };
 
-  const addTeacher = () => {
-    if (!teacherName.trim()) return;
-    const newTeacher: Teacher = { id: Date.now().toString(), name: teacherName, assignments: [] };
-    onUpdate({ teachers: [...(season.teachers || []), newTeacher] });
-    setTeacherName('');
-  };
-
-  const addAssignment = (tId: string) => {
-    if (!assignGrade || !assignSection || !assignSubject) return;
-    onUpdate({
-      teachers: season.teachers.map(t => 
-        t.id === tId ? { ...t, assignments: [...(t.assignments || []), { gradeId: assignGrade, sectionName: assignSection, subjectId: assignSubject }] } : t
-      )
+    if (editingStudentId) {
+      onUpdate({
+        students: season.students.map(s => s.id === editingStudentId ? { ...s, ...studentForm } as Student : s)
+      });
+      setEditingStudentId(null);
+    } else {
+      const newStudent: Student = { 
+        id: Date.now().toString(),
+        status: 'active',
+        ...(studentForm as Omit<Student, 'id'>)
+      };
+      onUpdate({ students: [...(season.students || []), newStudent] });
+    }
+    
+    setStudentForm({
+      name: '', grade: studentForm.grade || 1, section: studentForm.section || '', status: 'active', birthDate: '', 
+      parentPhone: '', address: '', parentJob: '',
+      registerNumber: '', pageNumber: '', recordNumber: ''
     });
   };
 
-  const resetFilters = () => {
-    setSelectedGrade(null);
-    setSelectedSection(null);
-    setStudentSearch('');
+  const saveTeacher = () => {
+    if (!teacherForm.name?.trim()) {
+      alert('يرجى كتابة اسم المعلم');
+      return;
+    }
+
+    if (editingTeacherId) {
+      onUpdate({
+        teachers: season.teachers.map(t => t.id === editingTeacherId ? { ...t, ...teacherForm } : t)
+      });
+      setEditingTeacherId(null);
+    } else {
+      const newTeacher: Teacher = { 
+        id: Date.now().toString(), 
+        name: teacherForm.name || '', 
+        specialization: teacherForm.specialization || '',
+        phone: teacherForm.phone || '',
+        assignments: [] 
+      };
+      onUpdate({ teachers: [...(season.teachers || []), newTeacher] });
+    }
+    setTeacherForm({ name: '', specialization: '', phone: '' });
+  };
+
+  const deleteStudent = (id: string) => {
+    if (confirm('حذف التلميذ نهائياً؟')) {
+      onUpdate({ students: (season.students || []).filter(s => s.id !== id) });
+    }
+  };
+
+  const deleteTeacher = (id: string) => {
+    if (confirm('حذف المعلم نهائياً؟')) {
+      onUpdate({ teachers: (season.teachers || []).filter(t => t.id !== id) });
+    }
+  };
+
+  const addAssignment = (teacherId: string) => {
+    if (!newAssignment.subjectId || !newAssignment.sectionName) return;
+    onUpdate({
+      teachers: season.teachers.map(t => t.id === teacherId ? {
+        ...t, assignments: [...(t.assignments || []), newAssignment]
+      } : t)
+    });
+    setNewAssignment({ gradeId: 1, sectionName: '', subjectId: '' });
   };
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-500 pb-20">
-      {/* اختيار التبويب */}
-      <div className="flex bg-white p-2 rounded-3xl shadow-sm w-fit border border-gray-100 no-print mx-auto">
-        <button 
-          onClick={() => setActiveSubTab('students')} 
-          className={`px-10 py-4 rounded-2xl font-black transition-all flex items-center gap-3 ${activeSubTab === 'students' ? 'bg-blue-600 text-white shadow-xl scale-105' : 'text-slate-400 hover:bg-gray-50'}`}
-        >
-          <Users size={22} /> شؤون الطلاب
+    <div className="space-y-8 animate-in fade-in pb-20">
+      <div className="flex bg-white p-2 rounded-[2rem] shadow-sm w-fit border border-gray-100 mx-auto no-print">
+        <button onClick={() => { setActiveSubTab('students'); setSearchTerm(''); }} className={`px-8 py-4 rounded-2xl font-black flex items-center gap-2 transition-all ${activeSubTab === 'students' ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:text-slate-600'}`}>
+          <Users size={20} /> شؤون الطلاب
         </button>
-        <button 
-          onClick={() => setActiveSubTab('teachers')} 
-          className={`px-10 py-4 rounded-2xl font-black transition-all flex items-center gap-3 ${activeSubTab === 'teachers' ? 'bg-blue-600 text-white shadow-xl scale-105' : 'text-slate-400 hover:bg-gray-50'}`}
-        >
-          <GraduationCap size={22} /> الهيئة التعليمية
+        <button onClick={() => { setActiveSubTab('audit'); setSearchTerm(''); }} className={`px-8 py-4 rounded-2xl font-black flex items-center gap-2 transition-all ${activeSubTab === 'audit' ? 'bg-red-600 text-white shadow-lg' : 'text-slate-400 hover:text-slate-600'}`}>
+          <Baby size={20} /> التدقيق العمري
+        </button>
+        <button onClick={() => { setActiveSubTab('teachers'); setSearchTerm(''); }} className={`px-8 py-4 rounded-2xl font-black flex items-center gap-2 transition-all ${activeSubTab === 'teachers' ? 'bg-purple-600 text-white shadow-lg' : 'text-slate-400 hover:text-slate-600'}`}>
+          <GraduationCap size={20} /> الهيئة التعليمية
         </button>
       </div>
 
-      {activeSubTab === 'students' ? (
-        <div className="space-y-8">
-          {/* قسم الإضافة السريعة */}
-          <div className="bg-white p-8 rounded-[3rem] shadow-sm border border-gray-100">
-            <h3 className="text-xl font-black mb-8 text-slate-800 flex items-center gap-3">
-               <div className="p-2 bg-blue-50 text-blue-600 rounded-xl"><UserPlus size={24} /></div>
-               تسجيل تلميذ جديد
+      {activeSubTab === 'students' && (
+        <div className="space-y-8 animate-in slide-in-bottom">
+          <div className="bg-white p-10 rounded-[3rem] shadow-sm border border-gray-100">
+            <h3 className="text-2xl font-black mb-8 flex items-center gap-3 text-slate-800">
+              <div className="p-3 bg-blue-50 text-blue-600 rounded-2xl">
+                {editingStudentId ? <Edit2 size={24} /> : <UserPlus size={24} />}
+              </div>
+              {editingStudentId ? 'تعديل بيانات التلميذ' : 'تسجيل تلميذ جديد'}
             </h3>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-6 items-end">
-              <div className="space-y-2">
-                <label className="text-xs font-black text-slate-400 mr-2">اسم التلميذ الكامل</label>
-                <input 
-                  type="text" 
-                  value={studentName} 
-                  onChange={e => setStudentName(e.target.value)} 
-                  className="w-full px-6 py-4 border-2 border-slate-50 rounded-2xl outline-none focus:border-blue-600 bg-slate-50/50 font-bold" 
-                  placeholder="مثال: محمد علي حسن..." 
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="text-xs font-black text-slate-400 mr-2">الصف الدراسي</label>
-                <select 
-                  value={studentGrade} 
-                  onChange={e => {setStudentGrade(parseInt(e.target.value)); setStudentSection('');}} 
-                  className="w-full px-6 py-4 border-2 border-slate-50 rounded-2xl bg-slate-50/50 font-bold outline-none focus:border-blue-600"
-                >
-                  {[1,2,3,4,5,6].map(g => <option key={g} value={g}>الصف {GRADE_NAMES[g]}</option>)}
-                </select>
-              </div>
-              <div className="space-y-2">
-                <label className="text-xs font-black text-slate-400 mr-2">الشعبة</label>
-                <select 
-                  value={studentSection} 
-                  onChange={e => setStudentSection(e.target.value)} 
-                  className="w-full px-6 py-4 border-2 border-slate-50 rounded-2xl bg-slate-50/50 font-bold outline-none focus:border-blue-600"
-                >
-                  <option value="">اختر الشعبة...</option>
-                  {(season.sections?.[studentGrade] || []).map(s => <option key={s} value={s}>شعبة {s}</option>)}
-                </select>
-              </div>
-              <button 
-                onClick={addStudent} 
-                className="bg-blue-600 text-white py-4 rounded-2xl font-black hover:bg-blue-700 shadow-xl shadow-blue-100 transition-all flex items-center justify-center gap-2"
-              >
-                <Plus size={20} /> تسجيل التلميذ
-              </button>
-            </div>
-          </div>
 
-          {/* لوحة التحكم في القوائم */}
-          <div className="bg-white p-10 rounded-[4rem] shadow-sm border border-gray-100">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-12">
-               <div>
-                 <h3 className="text-2xl font-black text-slate-800">إدارة القوائم المدرسية</h3>
-                 <p className="text-slate-400 font-bold text-sm mt-1">اختر الصف ثم الشعبة لعرض التلاميذ وتعديل بياناتهم</p>
-               </div>
-               
-               {selectedGrade && (
-                 <button 
-                   onClick={resetFilters}
-                   className="flex items-center gap-2 text-blue-600 font-black text-sm bg-blue-50 px-6 py-3 rounded-2xl hover:bg-blue-100 transition-all"
-                 >
-                   <ArrowLeft size={18} /> العودة لاختيار الصف
-                 </button>
-               )}
-            </div>
-
-            {/* عرض الصفوف أولاً */}
-            {!selectedGrade ? (
-              <div className="grid grid-cols-2 lg:grid-cols-3 gap-6 animate-in">
-                {[1, 2, 3, 4, 5, 6].map(g => (
-                  <button
-                    key={g}
-                    onClick={() => setSelectedGrade(g)}
-                    className="p-8 rounded-[3rem] border-4 border-slate-50 hover:border-blue-600 hover:bg-blue-50/30 transition-all group flex flex-col items-center text-center bg-white"
-                  >
-                    <div className="w-16 h-16 bg-blue-600 rounded-2xl flex items-center justify-center text-white mb-6 shadow-xl group-hover:rotate-12 transition-transform">
-                      <LayoutGrid size={32} />
-                    </div>
-                    <span className="text-xl font-black text-slate-800">الصف {GRADE_NAMES[g]}</span>
-                    <span className="text-sm font-bold text-slate-400 mt-2">إجمالي الطلاب: {stats.gradeCounts[g]}</span>
-                  </button>
-                ))}
+            <div className="space-y-10">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <div className="lg:col-span-2">
+                  <label className="block text-[10px] font-black text-slate-400 mb-2 mr-2 text-right">اسم التلميذ الرباعي</label>
+                  <input type="text" value={studentForm.name} onChange={e => setStudentForm({...studentForm, name: e.target.value})} className="w-full px-6 py-4 border-2 border-slate-50 rounded-2xl font-bold bg-slate-50/50" placeholder="الاسم الكامل..." />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-black text-slate-400 mb-2 mr-2 text-right">تاريخ الميلاد</label>
+                  <input type="date" value={studentForm.birthDate} onChange={e => setStudentForm({...studentForm, birthDate: e.target.value})} className="w-full px-6 py-4 border-2 border-slate-50 rounded-2xl font-bold bg-slate-50/50" />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div><label className="block text-[10px] font-black text-slate-400 mb-2 mr-2 text-right">الصف</label><select value={studentForm.grade} onChange={e => setStudentForm({...studentForm, grade: parseInt(e.target.value), section: ''})} className="w-full px-4 py-4 border-2 border-slate-50 rounded-2xl font-bold bg-slate-50/50">{[1,2,3,4,5,6].map(g => <option key={g} value={g}>{GRADE_NAMES[g]}</option>)}</select></div>
+                  <div><label className="block text-[10px] font-black text-slate-400 mb-2 mr-2 text-right">الشعبة</label><select value={studentForm.section} onChange={e => setStudentForm({...studentForm, section: e.target.value})} className="w-full px-4 py-4 border-2 border-slate-50 rounded-2xl font-bold bg-slate-50/50"><option value="">--</option>{(season.sections?.[studentForm.grade || 1] || []).map(s => <option key={s} value={s}>{s}</option>)}</select></div>
+                </div>
               </div>
-            ) : (
-              /* إذا تم اختيار صف، نعرض الشعب */
-              <div className="space-y-10 animate-in slide-in-from-right duration-300">
-                <div className="flex flex-wrap gap-4 items-center justify-center">
-                  {(season.sections[selectedGrade] || []).map(sec => (
-                    <button
-                      key={sec}
-                      onClick={() => setSelectedSection(selectedSection === sec ? null : sec)}
-                      className={`px-10 py-5 rounded-[2.5rem] border-4 transition-all flex flex-col items-center gap-2 ${
-                        selectedSection === sec 
-                          ? 'border-emerald-600 bg-emerald-50 text-emerald-700 shadow-xl scale-105' 
-                          : 'border-slate-50 bg-white text-slate-400 hover:border-emerald-100 hover:text-emerald-500'
-                      }`}
-                    >
-                      <span className="text-2xl font-black">شعبة {sec}</span>
-                      <span className="text-xs font-bold opacity-60">{stats.sectionCounts[`${selectedGrade}-${sec}`] || 0} تلميذ</span>
-                    </button>
-                  ))}
-                  {(season.sections[selectedGrade] || []).length === 0 && (
-                    <p className="text-slate-400 font-bold text-center py-10 italic">لا توجد شعب معرفة لهذا الصف، يرجى إضافتها من "المواد والصفوف"</p>
-                  )}
+
+              {/* حقول القيد والسكن وولي الأمر */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 p-8 bg-slate-50 rounded-[2.5rem] border-2 border-white">
+                <div className="space-y-4 lg:col-span-3 grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-[10px] font-black text-slate-400 mb-2 mr-2 text-right">رقم القيد</label>
+                    <div className="relative"><Hash size={14} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-300"/><input type="text" value={studentForm.registerNumber} onChange={e => setStudentForm({...studentForm, registerNumber: e.target.value})} className="w-full pr-10 pl-4 py-3 bg-white border border-slate-100 rounded-xl font-bold" placeholder="0000"/></div>
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-black text-slate-400 mb-2 mr-2 text-right">رقم السجل</label>
+                    <div className="relative"><ClipboardList size={14} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-300"/><input type="text" value={studentForm.recordNumber} onChange={e => setStudentForm({...studentForm, recordNumber: e.target.value})} className="w-full pr-10 pl-4 py-3 bg-white border border-slate-100 rounded-xl font-bold" placeholder="00"/></div>
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-black text-slate-400 mb-2 mr-2 text-right">رقم الصفحة</label>
+                    <div className="relative"><FileText size={14} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-300"/><input type="text" value={studentForm.pageNumber} onChange={e => setStudentForm({...studentForm, pageNumber: e.target.value})} className="w-full pr-10 pl-4 py-3 bg-white border border-slate-100 rounded-xl font-bold" placeholder="00"/></div>
+                  </div>
                 </div>
 
-                {/* عرض القائمة عند اختيار شعبة */}
-                {selectedSection && (
-                  <div className="space-y-6 animate-in fade-in duration-500">
-                    <div className="flex flex-col md:flex-row gap-4 justify-between items-center bg-slate-50 p-6 rounded-[2.5rem]">
-                      <h4 className="font-black text-slate-700 flex items-center gap-3">
-                        <Users size={20} className="text-emerald-600" />
-                        تلاميذ الصف {GRADE_NAMES[selectedGrade]} (شعبة {selectedSection})
-                      </h4>
-                      <div className="relative w-full md:w-80">
-                         <Search className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-300" size={18} />
-                         <input 
-                           type="text" 
-                           value={studentSearch}
-                           onChange={(e) => setStudentSearch(e.target.value)}
-                           placeholder="بحث داخل الشعبة..."
-                           className="w-full pr-12 pl-4 py-3 border-2 border-white rounded-2xl outline-none focus:border-emerald-600 bg-white font-bold text-sm shadow-sm"
-                         />
-                      </div>
-                    </div>
-
-                    <div className="overflow-x-auto rounded-[2rem] border border-slate-100">
-                      <table className="w-full text-right">
-                        <thead>
-                          <tr className="bg-slate-800 text-white">
-                            <th className="px-8 py-5 font-black text-sm">اسم التلميذ</th>
-                            <th className="px-8 py-5 text-center font-black text-sm no-print">خيارات</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100">
-                          {displayedStudents.map(s => (
-                            <tr key={s.id} className="hover:bg-slate-50 transition-colors group">
-                              <td className="px-8 py-5 flex items-center gap-4">
-                                <div className="w-10 h-10 bg-slate-100 rounded-full flex items-center justify-center text-slate-400 group-hover:bg-emerald-100 group-hover:text-emerald-600 transition-colors">
-                                  <UserCircle2 size={24} />
-                                </div>
-                                <span className="font-black text-slate-700">{s.name}</span>
-                              </td>
-                              <td className="px-8 py-5 no-print text-center">
-                                <button 
-                                  onClick={() => {
-                                    if(confirm(`هل تريد حذف التلميذ ${s.name} نهائياً؟`)) {
-                                      onUpdate({ 
-                                        students: season.students.filter(st => st.id !== s.id),
-                                        grades: (season.grades || []).filter(g => g.studentId !== s.id)
-                                      });
-                                    }
-                                  }} 
-                                  className="p-3 text-red-300 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all"
-                                >
-                                  <Trash2 size={18} />
-                                </button>
-                              </td>
-                            </tr>
-                          ))}
-                          {displayedStudents.length === 0 && (
-                            <tr>
-                              <td colSpan={2} className="py-20 text-center">
-                                <p className="text-slate-300 font-black text-xl italic">لا يوجد نتائج لعرضها</p>
-                              </td>
-                            </tr>
-                          )}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                )}
+                <div>
+                  <label className="block text-[10px] font-black text-slate-400 mb-2 mr-2 text-right">رقم هاتف ولي الأمر</label>
+                  <div className="relative"><Smartphone size={14} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-300"/><input type="text" value={studentForm.parentPhone} onChange={e => setStudentForm({...studentForm, parentPhone: e.target.value})} className="w-full pr-10 pl-4 py-3 bg-white border border-slate-100 rounded-xl font-bold" placeholder="07XXXXXXXXX"/></div>
+                </div>
+                <div>
+                  <label className="block text-[10px] font-black text-slate-400 mb-2 mr-2 text-right">العنوان / السكن</label>
+                  <div className="relative"><MapPin size={14} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-300"/><input type="text" value={studentForm.address} onChange={e => setStudentForm({...studentForm, address: e.target.value})} className="w-full pr-10 pl-4 py-3 bg-white border border-slate-100 rounded-xl font-bold" placeholder="الحي / المحلة / الزقاق"/></div>
+                </div>
+                <div>
+                  <label className="block text-[10px] font-black text-slate-400 mb-2 mr-2 text-right">مهنة ولي الأمر</label>
+                  <div className="relative"><Briefcase size={14} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-300"/><input type="text" value={studentForm.parentJob} onChange={e => setStudentForm({...studentForm, parentJob: e.target.value})} className="w-full pr-10 pl-4 py-3 bg-white border border-slate-100 rounded-xl font-bold" placeholder="كاسب / موظف..."/></div>
+                </div>
               </div>
-            )}
-          </div>
-        </div>
-      ) : (
-        /* واجهة المعلمين */
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-          <div className="lg:col-span-4 space-y-4 no-print">
-            <div className="bg-white p-8 rounded-[3rem] border border-gray-100 shadow-sm">
-              <h3 className="font-black mb-6 text-slate-800 flex items-center gap-2">إضافة معلم جديد</h3>
-              <div className="flex flex-col gap-4">
-                <input 
-                  type="text" 
-                  value={teacherName} 
-                  onChange={e => setTeacherName(e.target.value)} 
-                  placeholder="اسم المعلم..." 
-                  className="w-full px-6 py-4 border-2 border-slate-50 rounded-2xl outline-none focus:border-blue-600 bg-slate-50/50 font-bold" 
-                />
-                <button onClick={addTeacher} className="w-full bg-blue-600 text-white py-4 rounded-2xl shadow-lg active:scale-95 transition-all font-black flex items-center justify-center gap-2">
-                  <Plus size={20} /> إضافة المعلم
-                </button>
+
+              <div className="flex gap-4">
+                <button onClick={saveStudent} className="flex-1 bg-blue-600 text-white py-5 rounded-[2rem] font-black shadow-xl hover:bg-blue-700 transition-all flex items-center justify-center gap-3"><Plus size={24} /> {editingStudentId ? 'تحديث البيانات' : 'حفظ التلميذ'}</button>
+                {editingStudentId && <button onClick={() => { setEditingStudentId(null); setStudentForm({name: '', grade: 1, section: '', status: 'active'}); }} className="px-10 bg-slate-100 text-slate-500 rounded-[2rem] font-black">إلغاء</button>}
               </div>
             </div>
-            <div className="space-y-3">
+          </div>
+
+          <div className="bg-white p-10 rounded-[4rem] shadow-sm border border-gray-100">
+             <div className="flex flex-col gap-8 mb-10 items-center">
+                <div className="flex flex-wrap justify-center gap-2">
+                  <button onClick={() => { setSelectedGrade(null); setSelectedSection(null); }} className={`px-6 py-4 rounded-2xl font-black text-sm min-w-[100px] transition-all ${selectedGrade === null ? 'bg-slate-800 text-white shadow-lg' : 'bg-slate-50 text-slate-400 hover:bg-slate-100'}`}>الكل</button>
+                  {[1,2,3,4,5,6].map(g => (
+                    <button key={g} onClick={() => { setSelectedGrade(g); setSelectedSection(null); }} className={`px-6 py-4 rounded-2xl font-black text-sm min-w-[100px] transition-all ${selectedGrade === g ? 'bg-blue-600 text-white shadow-lg' : 'bg-slate-50 text-slate-400 hover:bg-slate-100'}`}>{GRADE_NAMES[g]}</button>
+                  ))}
+                </div>
+                
+                {selectedGrade && (
+                  <div className="flex flex-wrap justify-center gap-2 animate-in zoom-in">
+                    <button onClick={() => setSelectedSection(null)} className={`px-10 py-4 rounded-2xl font-black text-sm transition-all ${selectedSection === null ? 'bg-slate-800 text-white' : 'bg-white border-2 border-slate-100 text-slate-500'}`}>شعب الصف {GRADE_NAMES[selectedGrade]}</button>
+                    {(season.sections?.[selectedGrade] || []).map(s => (
+                      <button key={s} onClick={() => setSelectedSection(s)} className={`px-10 py-4 rounded-2xl font-black text-sm transition-all ${selectedSection === s ? 'bg-slate-800 text-white shadow-xl' : 'bg-white border-2 border-slate-100 text-slate-500'}`}>شعبة {s}</button>
+                    ))}
+                  </div>
+                )}
+
+                <div className="w-full max-w-md relative">
+                   <Search className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-300" size={18} />
+                   <input type="text" placeholder="بحث بالاسم أو رقم القيد..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="w-full pr-12 pl-4 py-4 bg-slate-50 border-2 border-slate-50 rounded-2xl font-bold outline-none focus:bg-white focus:border-blue-600 text-right" />
+                </div>
+             </div>
+
+             {filteredStudents.length > 0 ? (
+               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
+                 {filteredStudents.map(s => (
+                   <div key={s.id} className="p-8 border-2 border-slate-50 rounded-[3rem] shadow-sm hover:shadow-2xl transition-all bg-white hover:border-blue-200">
+                      <div className="flex items-start gap-5 mb-6">
+                        <div className="w-16 h-16 rounded-[1.5rem] bg-blue-50 text-blue-600 flex items-center justify-center font-black text-2xl">{s.name[0]}</div>
+                        <div className="flex-1 text-right">
+                          <h4 className="font-black text-slate-800">{s.name}</h4>
+                          <div className="flex flex-wrap gap-1 mt-2">
+                             <span className="px-3 py-1 bg-slate-100 text-[9px] font-black rounded-full text-slate-500">القيد: {s.registerNumber || '---'}</span>
+                             <span className="px-3 py-1 bg-blue-50 text-[9px] font-black rounded-full text-blue-600">الصف {GRADE_NAMES[s.grade]}-{s.section}</span>
+                          </div>
+                          <div className="mt-3 flex items-center gap-2 text-slate-400">
+                             <Phone size={10}/><span className="text-[9px] font-bold">{s.parentPhone || 'بدون هاتف'}</span>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex gap-2"><button onClick={() => { setEditingStudentId(s.id); setStudentForm(s); window.scrollTo({top: 0, behavior: 'smooth'}); }} className="flex-1 py-3 bg-blue-50 text-blue-600 rounded-2xl font-black text-xs hover:bg-blue-600 hover:text-white transition-all">تعديل</button><button onClick={() => deleteStudent(s.id)} className="p-3 bg-red-50 text-red-400 rounded-2xl hover:bg-red-600 hover:text-white transition-all"><Trash2 size={18} /></button></div>
+                   </div>
+                 ))}
+               </div>
+             ) : (
+               <div className="text-center py-20 bg-slate-50/50 rounded-[4rem] border-4 border-dashed border-slate-100">
+                 <p className="text-slate-400 font-black text-xl italic">لا يوجد نتائج لعرضها</p>
+               </div>
+             )}
+          </div>
+        </div>
+      )}
+
+      {activeSubTab === 'audit' && (
+        <div className="bg-white p-10 rounded-[4rem] shadow-sm border border-gray-100 animate-in slide-in-bottom">
+           <div className="flex items-center gap-4 mb-10 bg-red-50 p-6 rounded-[2.5rem] border border-red-100">
+              <Baby size={32} className="text-red-600" />
+              <div>
+                <h3 className="text-xl font-black text-red-800">قائمة التدقيق العمري</h3>
+                <p className="text-xs font-bold text-red-600">التلاميذ الذين يقع تاريخ ميلادهم خارج النطاق القانوني المسموح به للموسم ({season.maxBirthYear} - {season.minBirthYear})</p>
+              </div>
+           </div>
+
+           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
+              {filteredStudents.map(s => {
+                const status = getAgeStatus(s.birthDate);
+                return (
+                  <div key={s.id} className={`p-8 rounded-[3rem] border-2 bg-white transition-all hover:shadow-xl ${status === 'accelerated' ? 'border-amber-200' : 'border-red-200'}`}>
+                    <div className="flex justify-between items-start mb-4">
+                       <h4 className="font-black text-slate-800">{s.name}</h4>
+                       <span className={`px-4 py-1.5 rounded-xl text-[10px] font-black ${status === 'accelerated' ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700'}`}>
+                          {status === 'accelerated' ? 'مسرع (أصغر)' : 'متخلف (أكبر)'}
+                       </span>
+                    </div>
+                    <div className="space-y-2 text-xs font-bold text-slate-500">
+                       <p className="flex justify-between">تاريخ الميلاد: <span className="text-slate-900 font-black">{s.birthDate}</span></p>
+                       <p className="flex justify-between">الصف والشعبة: <span className="text-slate-900 font-black">{GRADE_NAMES[s.grade]} - {s.section}</span></p>
+                    </div>
+                  </div>
+                );
+              })}
+              {filteredStudents.length === 0 && (
+                <div className="col-span-full py-24 text-center text-emerald-600 bg-emerald-50 rounded-[3rem] border-2 border-dashed border-emerald-100">
+                   <CheckCircle2 size={48} className="mx-auto mb-4" />
+                   <p className="font-black text-xl">كافة التلاميذ ضمن السن القانوني المسموح</p>
+                </div>
+              )}
+           </div>
+        </div>
+      )}
+
+      {activeSubTab === 'teachers' && (
+        <div className="space-y-8 animate-in slide-in-bottom">
+          <div className="bg-white p-10 rounded-[3rem] shadow-sm border border-gray-100">
+            <h3 className="text-2xl font-black mb-8 flex items-center gap-3 text-slate-800">
+              <div className="p-3 bg-purple-50 text-purple-600 rounded-2xl"><GraduationCap size={24} /></div>
+              {editingTeacherId ? 'تعديل بيانات المعلم' : 'إضافة معلم جديد'}
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+              <input type="text" value={teacherForm.name} onChange={e => setTeacherForm({...teacherForm, name: e.target.value})} className="px-6 py-4 border-2 border-slate-50 rounded-2xl font-bold bg-slate-50/50" placeholder="اسم المعلم..." />
+              <input type="text" value={teacherForm.specialization} onChange={e => setTeacherForm({...teacherForm, specialization: e.target.value})} className="px-6 py-4 border-2 border-slate-50 rounded-2xl font-bold bg-slate-50/50" placeholder="الاختصاص..." />
+              <button onClick={saveTeacher} className="bg-purple-600 text-white rounded-2xl font-black shadow-lg hover:bg-purple-700 transition-all flex items-center justify-center gap-2"><Plus size={20} /> {editingTeacherId ? 'تحديث' : 'إضافة'}</button>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {(season.teachers || []).map(t => (
-                <div key={t.id} className={`flex items-center justify-between p-2 rounded-2xl border-2 transition-all ${selectedTeacherId === t.id ? 'bg-blue-600 text-white border-blue-600 shadow-xl scale-105' : 'bg-white border-slate-50 hover:border-slate-100 shadow-sm'}`}>
-                  <button onClick={() => setSelectedTeacherId(t.id)} className="flex-1 text-right font-black py-4 px-4 truncate outline-none">{t.name}</button>
-                  <div className="px-2">
-                    <button 
-                      onClick={() => {
-                        if(confirm('حذف المعلم؟')) {
-                          onUpdate({ teachers: season.teachers.filter(tea => tea.id !== t.id) });
-                          if (selectedTeacherId === t.id) setSelectedTeacherId(null);
-                        }
-                      }} 
-                      className={`p-2.5 rounded-xl transition-all ${selectedTeacherId === t.id ? 'bg-blue-700 text-white' : 'bg-red-50 text-red-400 hover:bg-red-100'}`}
-                    >
-                      <Trash2 size={18} />
-                    </button>
+                <div key={t.id} className="p-8 border border-slate-100 rounded-[2.5rem] bg-white hover:shadow-xl transition-all">
+                  <h4 className="text-xl font-black text-slate-800 mb-2">{t.name}</h4>
+                  <p className="text-xs font-bold text-slate-400 mb-6">{t.specialization || 'بدون اختصاص'}</p>
+                  
+                  <div className="space-y-2 mb-6">
+                     <p className="text-[10px] font-black text-slate-400 border-b pb-1">الحصص المسندة ({t.assignments?.length || 0})</p>
+                     {t.assignments?.map((as, idx) => (
+                       <div key={idx} className="flex justify-between text-[10px] font-black bg-slate-50 p-2 rounded-lg">
+                         <span>{GRADE_NAMES[as.gradeId]} - {as.sectionName}</span>
+                         <span className="text-purple-600">{season.subjects[as.gradeId]?.find(sub => sub.id === as.subjectId)?.name || 'مادة محذوفة'}</span>
+                       </div>
+                     ))}
+                  </div>
+
+                  <div className="flex gap-2">
+                    <button onClick={() => setManagingAssignmentsId(t.id)} className="flex-1 py-2 bg-blue-50 text-blue-600 rounded-xl font-black text-[10px] hover:bg-blue-600 hover:text-white transition-all">إسناد حصة</button>
+                    <button onClick={() => { setEditingTeacherId(t.id); setTeacherForm(t); }} className="p-2 bg-slate-50 text-slate-400 rounded-xl hover:bg-slate-200"><Edit2 size={16} /></button>
+                    <button onClick={() => deleteTeacher(t.id)} className="p-2 bg-red-50 text-red-400 rounded-xl hover:bg-red-600 hover:text-white"><Trash2 size={16} /></button>
                   </div>
                 </div>
               ))}
             </div>
           </div>
-          
-          <div className="lg:col-span-8">
-            {selectedTeacherId ? (
-              <div className="bg-white p-10 rounded-[3rem] border border-gray-100 shadow-sm min-h-[500px]">
-                {(() => {
-                  const teacher = season.teachers.find(t => t.id === selectedTeacherId);
-                  if (!teacher) return null;
-                  return (
-                    <div className="space-y-8">
-                      <div className="border-b border-slate-50 pb-6">
-                         <h2 className="text-2xl font-black text-slate-800">مهام المعلم: {teacher.name}</h2>
-                      </div>
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 bg-slate-50/50 p-8 rounded-[2.5rem] no-print">
-                        <div className="space-y-2">
-                          <label className="text-xs font-black text-slate-400 mr-2">الصف</label>
-                          <select value={assignGrade} onChange={e => {setAssignGrade(parseInt(e.target.value)); setAssignSection(''); setAssignSubject('');}} className="w-full p-4 border-2 border-white rounded-2xl bg-white font-black outline-none shadow-sm">
-                            {[1,2,3,4,5,6].map(g => <option key={g} value={g}>{GRADE_NAMES[g]}</option>)}
-                          </select>
-                        </div>
-                        <div className="space-y-2">
-                          <label className="text-xs font-black text-slate-400 mr-2">الشعبة</label>
-                          <select value={assignSection} onChange={e => setAssignSection(e.target.value)} className="w-full p-4 border-2 border-white rounded-2xl bg-white font-black outline-none shadow-sm">
-                            <option value="">اختر...</option>
-                            {(season.sections?.[assignGrade] || []).map(s => <option key={s} value={s}>شعبة {s}</option>)}
-                          </select>
-                        </div>
-                        <div className="space-y-2">
-                          <label className="text-xs font-black text-slate-400 mr-2">المادة</label>
-                          <select value={assignSubject} onChange={e => setAssignSubject(e.target.value)} className="w-full p-4 border-2 border-white rounded-2xl bg-white font-black outline-none shadow-sm">
-                            <option value="">اختر...</option>
-                            {(season.subjects?.[assignGrade] || []).map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-                          </select>
-                        </div>
-                        <button onClick={() => addAssignment(teacher.id)} className="md:col-span-3 bg-blue-600 text-white py-5 rounded-2xl font-black shadow-xl active:scale-95 transition-all">إسناد المهمة</button>
-                      </div>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {(teacher.assignments || []).map((ass, idx) => {
-                          const sub = season.subjects[ass.gradeId]?.find(s => s.id === ass.subjectId);
-                          return (
-                            <div key={idx} className="p-6 border-2 border-slate-50 rounded-3xl flex justify-between items-center bg-white shadow-sm hover:border-blue-100 transition-all">
-                              <div>
-                                <p className="font-black text-slate-800 text-lg">{sub?.name || 'مادة غير معروفة'}</p>
-                                <p className="text-xs text-slate-400 font-bold mt-1">الصف {GRADE_NAMES[ass.gradeId]} - شعبة {ass.sectionName}</p>
-                              </div>
-                              <button onClick={() => onUpdate({ teachers: season.teachers.map(t => t.id === teacher.id ? { ...t, assignments: t.assignments.filter((_, i) => i !== idx) } : t) })} className="text-red-300 hover:text-red-600 p-3 hover:bg-red-50 rounded-xl transition-all">
-                                <Trash2 size={20} />
-                              </button>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  );
-                })()}
-              </div>
-            ) : (
-              <div className="h-full min-h-[500px] flex flex-col items-center justify-center bg-slate-50 border-4 border-dashed border-slate-100 rounded-[4rem] text-slate-300 p-10">
-                <GraduationCap size={100} className="opacity-10 mb-6" />
-                <p className="font-black text-2xl">اختر معلماً لإدارة مهامه</p>
-              </div>
-            )}
+        </div>
+      )}
+
+      {managingAssignmentsId && (
+        <div className="fixed inset-0 z-[100] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white w-full max-w-md rounded-[2.5rem] p-8 animate-in zoom-in">
+             <div className="flex justify-between items-center mb-8">
+               <h3 className="text-xl font-black text-slate-800">إسناد حصة جديدة</h3>
+               <button onClick={() => setManagingAssignmentsId(null)} className="p-2 text-slate-300 hover:text-red-500"><X size={24} /></button>
+             </div>
+             <div className="space-y-4">
+               <select value={newAssignment.gradeId} onChange={e => setNewAssignment({...newAssignment, gradeId: parseInt(e.target.value), sectionName: '', subjectId: ''})} className="w-full p-4 border rounded-2xl font-bold bg-slate-50">{[1,2,3,4,5,6].map(g => <option key={g} value={g}>{GRADE_NAMES[g]}</option>)}</select>
+               <select value={newAssignment.sectionName} onChange={e => setNewAssignment({...newAssignment, sectionName: e.target.value})} className="w-full p-4 border rounded-2xl font-bold bg-slate-50"><option value="">-- اختر الشعبة --</option>{(season.sections?.[newAssignment.gradeId] || []).map(s => <option key={s} value={s}>{s}</option>)}</select>
+               <select value={newAssignment.subjectId} onChange={e => setNewAssignment({...newAssignment, subjectId: e.target.value})} className="w-full p-4 border rounded-2xl font-bold bg-slate-50"><option value="">-- اختر المادة --</option>{(season.subjects?.[newAssignment.gradeId] || []).map(sub => <option key={sub.id} value={sub.id}>{sub.name}</option>)}</select>
+               <button onClick={() => addAssignment(managingAssignmentsId)} className="w-full bg-blue-600 text-white py-4 rounded-2xl font-black shadow-lg">إسناد الحصة الآن</button>
+             </div>
           </div>
         </div>
       )}
