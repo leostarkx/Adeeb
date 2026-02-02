@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo } from 'react';
-import { Season, AppState, GRADE_NAMES, Student } from '../types';
-import { ArrowUpCircle, Info, ChevronRight, CheckCircle2, AlertTriangle, Users, Database, Zap } from 'lucide-react';
+import { Season, AppState, GRADE_NAMES, Student, Graduate } from '../types';
+import { ArrowUpCircle, Info, ChevronRight, CheckCircle2, AlertTriangle, Users, Database, Zap, Medal } from 'lucide-react';
 import { getPrimaryResult } from '../utils/calculations';
 
 interface Props {
@@ -62,16 +62,12 @@ const PromotionManager: React.FC<Props> = ({ season, onUpdate, state, setState }
       return;
     }
 
-    if (!confirm(`هل أنت متأكد من ترحيل ${analysis.passed} تلميذ ناجح إلى موسم ${targetSeason?.name}؟`)) return;
+    if (!confirm(`هل أنت متأكد من ترحيل ${analysis.passed + analysis.failed} تلميذ إلى موسم ${targetSeason?.name}؟ سيتم ترقية الناجحين وبقاء الراسبين في صفوفهم، ونقل طلاب السادس الناجحين لسجل الخريجين.`)) return;
 
     setIsProcessing(true);
 
-    // المنطق:
-    // 1. جلب الطلاب الناجحين (غير طلاب الصف السادس)
-    // 2. ترقية صفهم الدراسي بمقدار 1
-    // 3. إضافتهم للموسم الهدف
-    
     const newStudentsInTarget: Student[] = [...(targetSeason?.students || [])];
+    const newGraduates: Graduate[] = [...(state.graduates || [])];
     
     season.students.forEach(student => {
       const studentResult = analysis.results.find(r => r.id === student.id);
@@ -81,26 +77,48 @@ const PromotionManager: React.FC<Props> = ({ season, onUpdate, state, setState }
           // ناجح وينتقل للصف التالي
           const promotedStudent: Student = {
             ...student,
-            id: `PROMOTED_${student.id}_${Date.now()}`, // توليد ID جديد للموسم الجديد
+            id: `PROMOTED_${student.id}_${Date.now()}`,
             grade: student.grade + 1,
             status: 'active'
           };
           
-          // التأكد من عدم تكراره في الموسم الهدف (حسب الاسم أو رقم القيد)
           const isAlreadyThere = newStudentsInTarget.some(s => s.registerNumber === student.registerNumber && s.name === student.name);
           if (!isAlreadyThere) {
             newStudentsInTarget.push(promotedStudent);
           }
+        } else if (student.grade === 6) {
+          // ناجح في السادس -> ينتقل لسجل الخريجين العام
+          const isAlreadyGraduated = newGraduates.some(g => g.registerNumber === student.registerNumber && g.name === student.name && g.seasonName === season.name);
+          if (!isAlreadyGraduated) {
+            newGraduates.push({
+              id: `GRAD_${student.id}_${Date.now()}`,
+              name: student.name,
+              registerNumber: student.registerNumber,
+              seasonName: season.name,
+              graduationYear: season.name.split('-')[0] || new Date().getFullYear().toString()
+            });
+          }
         }
-      } else if (studentResult?.status === 'راسب' || studentResult?.status === 'مكمل') {
-          // اختيارياً: يمكن إضافة منطق لبقاء الراسبين في نفس الصف بالموسم الجديد
-          // هنا سنكتفي بترحيل الناجحين فقط حسب طلب المعلم
+      } else {
+          // راسب أو مكمل أو مفصول -> ينتقل لنفس الصف في الموسم الجديد
+          const repeatStudent: Student = {
+            ...student,
+            id: `REPEATED_${student.id}_${Date.now()}`,
+            grade: student.grade,
+            status: student.status === 'dismissed' ? 'dismissed' : 'active'
+          };
+          
+          const isAlreadyThere = newStudentsInTarget.some(s => s.registerNumber === student.registerNumber && s.name === student.name);
+          if (!isAlreadyThere) {
+            newStudentsInTarget.push(repeatStudent);
+          }
       }
     });
 
     // تحديث الحالة العامة
     setState(prev => ({
       ...prev,
+      graduates: newGraduates,
       seasons: prev.seasons.map(s => s.id === targetSeasonId ? { ...s, students: newStudentsInTarget } : s)
     }));
 
@@ -111,7 +129,7 @@ const PromotionManager: React.FC<Props> = ({ season, onUpdate, state, setState }
       failed: analysis.failed,
       graduated: analysis.graduated
     });
-    alert(`تمت عملية الترحيل بنجاح! تم نقل ${analysis.passed} تلميذ إلى الموسم الجديد.`);
+    alert(`تمت عملية الترحيل بنجاح! تم نقل الناجحين للمستوى الأعلى، وبقاء الراسبين في صفوفهم، وأرشفة خريجي السادس في سجل الخريجين العام.`);
   };
 
   return (
@@ -121,8 +139,8 @@ const PromotionManager: React.FC<Props> = ({ season, onUpdate, state, setState }
           <div className="w-24 h-24 bg-blue-600 text-white rounded-[2.5rem] flex items-center justify-center mb-6 shadow-xl shadow-blue-100">
             <ArrowUpCircle size={48} />
           </div>
-          <h2 className="text-3xl font-black text-slate-800">نظام الترحيل والترقية الذكي</h2>
-          <p className="text-slate-400 font-bold mt-2">نقل الطلاب الناجحين آلياً من الموسم الحالي إلى الموسم القادم</p>
+          <h2 className="text-3xl font-black text-slate-800">نظام الترحيل والأرشفة الذكي</h2>
+          <p className="text-slate-400 font-bold mt-2">نقل الطلاب للموسم القادم (ترقية الناجحين وبقاء الراسبين) وأرشفة الخريجين</p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-12">
@@ -137,15 +155,15 @@ const PromotionManager: React.FC<Props> = ({ season, onUpdate, state, setState }
                 <span className="font-black text-slate-800">{analysis.total}</span>
               </div>
               <div className="flex justify-between items-center bg-emerald-50 p-4 rounded-2xl border border-emerald-100">
-                <span className="text-sm font-bold text-emerald-600">الناجحون (للترقية)</span>
+                <span className="text-sm font-bold text-emerald-600">ناجحون (ترقية للصف التالي)</span>
                 <span className="font-black text-emerald-700">{analysis.passed}</span>
               </div>
               <div className="flex justify-between items-center bg-blue-50 p-4 rounded-2xl border border-blue-100">
-                <span className="text-sm font-bold text-blue-600">خريجو الصف السادس</span>
+                <span className="text-sm font-bold text-blue-600">خريجو السادس (للأرشفة)</span>
                 <span className="font-black text-blue-700">{analysis.graduated}</span>
               </div>
               <div className="flex justify-between items-center bg-red-50 p-4 rounded-2xl border border-red-100">
-                <span className="text-sm font-bold text-red-600">الراسبون والمكملون</span>
+                <span className="text-sm font-bold text-red-600">راسبون (بقاؤهم في نفس الصف)</span>
                 <span className="font-black text-red-700">{analysis.failed}</span>
               </div>
             </div>
@@ -175,59 +193,38 @@ const PromotionManager: React.FC<Props> = ({ season, onUpdate, state, setState }
               {targetSeason && (
                 <div className="bg-blue-50 p-4 rounded-2xl text-blue-700 text-xs font-bold flex items-start gap-3">
                   <Info size={18} className="shrink-0" />
-                  <p>سيتم نقل التلاميذ الناجحين فقط من الصفوف (1-5) وترقيتهم للصف التالي في موسم "{targetSeason.name}".</p>
+                  <div className="space-y-1">
+                    <p>• الناجحون (1-5) سيرقون للصف الأعلى في "{targetSeason.name}".</p>
+                    <p>• الراسبون سيبقون في نفس صفهم في "{targetSeason.name}".</p>
+                    <p>• خريجو السادس سيتم حفظهم في سجل الخريجين العام.</p>
+                  </div>
                 </div>
               )}
 
               <button 
-                disabled={!targetSeasonId || analysis.passed === 0 || isProcessing}
+                disabled={!targetSeasonId || isProcessing}
                 onClick={handlePromotion}
                 className={`w-full py-5 rounded-[2rem] font-black text-xl shadow-xl flex items-center justify-center gap-3 transition-all ${
-                  !targetSeasonId || analysis.passed === 0 || isProcessing
+                  !targetSeasonId || isProcessing
                     ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
                     : 'bg-blue-600 text-white hover:bg-blue-700 hover:scale-[1.02]'
                 }`}
               >
-                {isProcessing ? 'جاري الترحيل...' : 'بدء عملية الترحيل الآن'}
+                {isProcessing ? 'جاري الترحيل والأرشفة...' : 'بدء الترحيل العام'}
                 <ArrowUpCircle size={24} />
               </button>
             </div>
           </div>
         </div>
 
-        {promotionSummary && (
-          <div className="mt-8 bg-emerald-50 border-2 border-emerald-100 p-8 rounded-[3rem] animate-in zoom-in">
-            <div className="flex items-center gap-4 mb-4">
-              <CheckCircle2 size={32} className="text-emerald-600" />
-              <h4 className="text-2xl font-black text-emerald-800">اكتمل الترحيل بنجاح!</h4>
-            </div>
-            <p className="text-emerald-700 font-bold mb-4">تم ترحيل {promotionSummary.passed} تلميذ بنجاح إلى الموسم المختار.</p>
-            <div className="grid grid-cols-3 gap-4">
-              <div className="bg-white p-4 rounded-2xl text-center">
-                <p className="text-[10px] font-black text-slate-400">الناجحون المرحلة</p>
-                <p className="text-2xl font-black text-emerald-600">{promotionSummary.passed}</p>
-              </div>
-              <div className="bg-white p-4 rounded-2xl text-center">
-                <p className="text-[10px] font-black text-slate-400">الخريجون (سادس)</p>
-                <p className="text-2xl font-black text-blue-600">{promotionSummary.graduated}</p>
-              </div>
-              <div className="bg-white p-4 rounded-2xl text-center">
-                <p className="text-[10px] font-black text-slate-400">الباقون في صفوفهم</p>
-                <p className="text-2xl font-black text-red-600">{promotionSummary.failed}</p>
-              </div>
-            </div>
-          </div>
-        )}
-
         <div className="mt-12 p-8 bg-amber-50 border-2 border-dashed border-amber-200 rounded-[3rem] flex items-center gap-6">
           <div className="p-4 bg-white rounded-2xl text-amber-600 shadow-sm"><AlertTriangle size={32} /></div>
           <div className="text-right">
-            <h4 className="font-black text-amber-800 text-xl">تنبيهات هامة قبل الترحيل</h4>
+            <h4 className="font-black text-amber-800 text-xl">تنبيهات هامة</h4>
             <ul className="text-sm font-bold text-amber-700/80 mt-2 list-disc list-inside space-y-1">
-              <li>تأكد من رصد كافة درجات الدور الأول (أو الثاني) قبل البدء.</li>
-              <li>الترحيل يعتمد على نتيجة "ناجح" النهائية في سجل الدرجات.</li>
-              <li>طلاب الصف السادس الناجحون لا يتم ترحيلهم كونهم غادروا المدرسة الابتدائية.</li>
-              <li>يفضل عمل "تكرار للموسم" أولاً لتجهيز الشعب والمواد في السنة الجديدة.</li>
+              <li>الناجحون في الصفوف 1-5 يتم ترقيتهم درجة دراسية واحدة.</li>
+              <li>الراسبون والمكملون والمفصولون يتم ترحيلهم لنفس درجتهم الدراسية الحالية.</li>
+              <li>خريجو السادس الناجحون يتم أرشفة بياناتهم في "سجل الخريجين العام" خارج نطاق المواسم.</li>
             </ul>
           </div>
         </div>

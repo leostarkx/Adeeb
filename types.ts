@@ -33,6 +33,14 @@ export interface Student {
   recordNumber?: string;
 }
 
+export interface Graduate {
+  id: string;
+  name: string;
+  registerNumber?: string;
+  seasonName: string;
+  graduationYear: string;
+}
+
 export interface GradeRecord {
   studentId: string;
   subjectId: string;
@@ -89,6 +97,7 @@ export interface ThemeSettings {
 
 export interface AppState {
   seasons: Season[];
+  graduates: Graduate[];
   activeSeasonId: string | null;
   theme: ThemeType;
   themeConfig?: Record<ThemeType, ThemeSettings>;

@@ -23,7 +23,8 @@ import {
   RotateCcw,
   Coffee,
   ArrowUpCircle,
-  Gavel
+  Gavel,
+  History
 } from 'lucide-react';
 import { Season, AppState, GRADE_NAMES, ThemeType, DEFAULT_THEMES, ThemeSettings } from './types';
 import Dashboard from './components/Dashboard';
@@ -38,6 +39,7 @@ import HonorBoard from './components/HonorBoard';
 import AttendanceManager from './components/AttendanceManager';
 import PromotionManager from './components/PromotionManager';
 import DecisionManager from './components/DecisionManager';
+import GraduatesView from './components/GraduatesView';
 
 const LOGO_URL = "https://image2url.com/r2/default/images/1769798562819-9854cd28-07cb-4eeb-b7b3-462e57a0bb4e.png";
 
@@ -48,6 +50,7 @@ const App: React.FC = () => {
       try {
         const data = JSON.parse(saved);
         if (!data.themeConfig) data.themeConfig = { ...DEFAULT_THEMES };
+        if (!data.graduates) data.graduates = [];
         Object.keys(DEFAULT_THEMES).forEach(key => {
           if (!data.themeConfig[key]) {
             data.themeConfig[key] = { ...DEFAULT_THEMES[key as ThemeType] };
@@ -61,6 +64,7 @@ const App: React.FC = () => {
     }
     return { 
       seasons: [], 
+      graduates: [],
       activeSeasonId: null, 
       theme: 'classic', 
       themeConfig: { ...DEFAULT_THEMES } 
@@ -155,6 +159,7 @@ const App: React.FC = () => {
       try {
         const data = JSON.parse(event.target?.result as string);
         if (!data.themeConfig) data.themeConfig = { ...DEFAULT_THEMES };
+        if (!data.graduates) data.graduates = [];
         setState(data);
         alert('تم استيراد البيانات بنجاح');
       } catch (err) {
@@ -177,6 +182,7 @@ const App: React.FC = () => {
     { id: 'reports', label: 'سجل الطالب', icon: GraduationCap, disabled: !activeSeason },
     { id: 'stats', label: 'الإحصائيات', icon: BarChart3, disabled: !activeSeason },
     { id: 'promotion', label: 'الترحيل', icon: ArrowUpCircle, disabled: !activeSeason },
+    { id: 'graduates', label: 'سجل الخريجين', icon: History },
     { id: 'delete-center', label: 'مركز الحذف القاطع', icon: Trash2, highlight: true },
   ];
 
@@ -304,6 +310,7 @@ const App: React.FC = () => {
           {activeTab === 'dashboard' && <Dashboard state={state} setState={setState} />}
           {activeTab === 'seasons' && <SeasonManager state={state} setState={setState} />}
           {activeTab === 'delete-center' && <DeleteCenter state={state} setState={setState} />}
+          {activeTab === 'graduates' && <GraduatesView state={state} />}
           {activeSeason && (
             <div className="animate-in">
               {activeTab === 'subjects' && <SubjectsManager season={activeSeason} onUpdate={updateActiveSeason} />}
