@@ -24,7 +24,8 @@ import {
   Coffee,
   ArrowUpCircle,
   Gavel,
-  History
+  History,
+  Search
 } from 'lucide-react';
 import { Season, AppState, GRADE_NAMES, ThemeType, DEFAULT_THEMES, ThemeSettings } from './types';
 import Dashboard from './components/Dashboard';
@@ -182,7 +183,7 @@ const App: React.FC = () => {
     { id: 'reports', label: 'سجل الطالب', icon: GraduationCap, disabled: !activeSeason },
     { id: 'stats', label: 'الإحصائيات', icon: BarChart3, disabled: !activeSeason },
     { id: 'promotion', label: 'الترحيل', icon: ArrowUpCircle, disabled: !activeSeason },
-    { id: 'graduates', label: 'سجل الخريجين', icon: History },
+    { id: 'graduates', label: 'أرشيف الطلاب', icon: History },
     { id: 'delete-center', label: 'مركز الحذف القاطع', icon: Trash2, highlight: true },
   ];
 

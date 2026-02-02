@@ -4,7 +4,7 @@ import { AppState, Graduate, Season, Student, GRADE_NAMES, GradeRecord } from '.
 import { 
   History, Search, Filter, Medal, Calendar, Hash, UserCheck, 
   ArrowRight, BookOpen, Clock, FileText, TrendingUp, UserCircle,
-  ChevronLeft, Award, UserX
+  ChevronLeft, Award, UserX, Briefcase, Info
 } from 'lucide-react';
 import { formatGrade } from '../utils/calculations';
 
@@ -17,29 +17,78 @@ const GraduatesView: React.FC<Props> = ({ state }) => {
   const [selectedSeasonFilter, setSelectedSeasonFilter] = useState<string>('all');
   const [selectedRegNum, setSelectedRegNum] = useState<string | null>(null);
 
-  // استخراج قائمة المواسم الفريدة التي لديها خريجون
-  const graduateSeasons = useMemo(() => {
-    const seasons = state.graduates.map(g => g.seasonName);
-    return Array.from(new Set(seasons)).sort();
-  }, [state.graduates]);
+  // تجميع قائمة فريدة لكافة الطلاب الذين مروا على المدرسة عبر كافة المواسم
+  const allArchivedStudents = useMemo(() => {
+    const studentsMap = new Map<string, { 
+      name: string, 
+      registerNumber: string, 
+      lastSeason: string, 
+      status?: string,
+      isGraduate: boolean
+    }>();
 
-  // البحث في قائمة الخريجين المؤرشفين
-  const filteredGraduates = useMemo(() => {
-    let list = [...(state.graduates || [])];
+    // إضافة الطلاب من المواسم الدراسية
+    state.seasons.forEach(season => {
+      season.students.forEach(s => {
+        if (s.registerNumber) {
+          const existing = studentsMap.get(s.registerNumber);
+          // نحدث المعلومات لأحدث موسم دراسي
+          if (!existing || season.name > existing.lastSeason) {
+            studentsMap.set(s.registerNumber, {
+              name: s.name,
+              registerNumber: s.registerNumber,
+              lastSeason: season.name,
+              status: s.status,
+              isGraduate: false
+            });
+          }
+        }
+      });
+    });
+
+    // إضافة الطلاب من سجل الخريجين الرسمي
+    state.graduates.forEach(g => {
+      if (g.registerNumber) {
+        const existing = studentsMap.get(g.registerNumber);
+        if (!existing) {
+          studentsMap.set(g.registerNumber, {
+            name: g.name,
+            registerNumber: g.registerNumber,
+            lastSeason: g.seasonName,
+            status: 'graduate',
+            isGraduate: true
+          });
+        } else {
+          // إذا كان موجوداً، نحدث حالته لخريج
+          studentsMap.set(g.registerNumber, { ...existing, isGraduate: true });
+        }
+      }
+    });
+
+    return Array.from(studentsMap.values());
+  }, [state.seasons, state.graduates]);
+
+  const graduateSeasons = useMemo(() => {
+    const seasons = state.seasons.map(s => s.name);
+    return Array.from(new Set(seasons)).sort();
+  }, [state.seasons]);
+
+  const filteredArchivedList = useMemo(() => {
+    let list = [...allArchivedStudents];
     
     if (selectedSeasonFilter !== 'all') {
-      list = list.filter(g => g.seasonName === selectedSeasonFilter);
+      list = list.filter(s => s.lastSeason === selectedSeasonFilter);
     }
     
     if (searchTerm) {
-      list = list.filter(g => 
-        g.name.includes(searchTerm) || 
-        g.registerNumber?.includes(searchTerm)
+      list = list.filter(s => 
+        s.name.includes(searchTerm) || 
+        s.registerNumber.includes(searchTerm)
       );
     }
     
-    return list.sort((a, b) => b.graduationYear.localeCompare(a.graduationYear) || a.name.localeCompare(b.name, 'ar'));
-  }, [state.graduates, searchTerm, selectedSeasonFilter]);
+    return list.sort((a, b) => a.name.localeCompare(b.name, 'ar'));
+  }, [allArchivedStudents, searchTerm, selectedSeasonFilter]);
 
   // البحث عن "السيرة الدراسية" عبر كافة المواسم
   const studentAcademicHistory = useMemo(() => {
@@ -69,16 +118,15 @@ const GraduatesView: React.FC<Props> = ({ state }) => {
   }, [state.seasons, selectedRegNum]);
 
   const selectedStudentBasic = useMemo(() => {
-    return state.graduates.find(g => g.registerNumber === selectedRegNum) || 
-           state.seasons.flatMap(s => s.students).find(s => s.registerNumber === selectedRegNum);
-  }, [state.graduates, state.seasons, selectedRegNum]);
+    return allArchivedStudents.find(s => s.registerNumber === selectedRegNum);
+  }, [allArchivedStudents, selectedRegNum]);
 
   if (selectedRegNum && studentAcademicHistory) {
     return (
       <div className="max-w-6xl mx-auto space-y-8 animate-in fade-in pb-20">
         <div className="flex justify-between items-center bg-white p-5 rounded-3xl shadow-sm border border-gray-100 no-print">
           <button onClick={() => setSelectedRegNum(null)} className="flex items-center gap-2 text-slate-600 font-black px-6 py-2 bg-slate-50 rounded-xl hover:bg-slate-100 transition-colors">
-            <ArrowRight size={20} /> العودة للسجل العام
+            <ArrowRight size={20} /> العودة للأرشيف العام
           </button>
           <div className="flex items-center gap-3">
              <span className="text-[10px] font-black text-slate-400">رقم القيد المركزي</span>
@@ -101,7 +149,11 @@ const GraduatesView: React.FC<Props> = ({ state }) => {
                    </div>
                    <div className="flex items-center gap-2 bg-white/10 px-4 py-2 rounded-2xl border border-white/5">
                       <TrendingUp size={16} className="text-emerald-400" />
-                      <span className="text-xs font-bold">المسيرة الدراسية: {studentAcademicHistory.length} مواسم</span>
+                      <span className="text-xs font-bold">المسيرة في المدرسة: {studentAcademicHistory.length} مواسم</span>
+                   </div>
+                   <div className="flex items-center gap-2 bg-white/10 px-4 py-2 rounded-2xl border border-white/5">
+                      <UserCheck size={16} className="text-blue-400" />
+                      <span className="text-xs font-bold">آخر حالة: {selectedStudentBasic?.isGraduate ? 'خريج' : (selectedStudentBasic?.status === 'dismissed' ? 'مفصول' : 'طالب سابق/مستمر')}</span>
                    </div>
                 </div>
               </div>
@@ -127,6 +179,10 @@ const GraduatesView: React.FC<Props> = ({ state }) => {
                       <div className="flex flex-col items-center px-4 py-1 bg-red-50 text-red-600 rounded-xl border border-red-100">
                          <span className="text-[8px] font-black">أيام الغياب</span>
                          <span className="text-sm font-black">{entry.attendanceCount}</span>
+                      </div>
+                      <div className="flex flex-col items-center px-4 py-1 bg-slate-100 text-slate-600 rounded-xl border border-slate-200">
+                         <span className="text-[8px] font-black">حالة التلميذ</span>
+                         <span className="text-[10px] font-black">{entry.studentInfo.status === 'dismissed' ? 'مفصول' : 'نشط'}</span>
                       </div>
                    </div>
                 </div>
@@ -170,12 +226,12 @@ const GraduatesView: React.FC<Props> = ({ state }) => {
       <div className="bg-white p-10 rounded-[3rem] shadow-sm border border-gray-100">
         <div className="flex flex-col md:flex-row justify-between items-center gap-8 mb-12">
           <div className="flex items-center gap-5">
-            <div className="p-5 bg-amber-500 text-white rounded-[2rem] shadow-xl shadow-amber-100">
+            <div className="p-5 bg-slate-800 text-white rounded-[2rem] shadow-xl shadow-slate-100">
               <History size={40} />
             </div>
             <div>
-              <h2 className="text-3xl font-black text-slate-800">سجل الخريجين العام</h2>
-              <p className="text-slate-400 font-bold mt-1">أرشيف خريجي مدرسة الأديب والبحث في السيرة الدراسية</p>
+              <h2 className="text-3xl font-black text-slate-800">أرشيف طلاب مدرسة الأديب</h2>
+              <p className="text-slate-400 font-bold mt-1">البحث في السيرة الدراسية لكافة الطلاب (مستمرين، خريجين، مفصولين)</p>
             </div>
           </div>
 
@@ -187,7 +243,7 @@ const GraduatesView: React.FC<Props> = ({ state }) => {
                   placeholder="بحث شامل بالاسم أو رقم القيد..." 
                   value={searchTerm}
                   onChange={e => setSearchTerm(e.target.value)}
-                  className="w-full pr-12 pl-4 py-4 bg-slate-50 border-2 border-slate-50 rounded-2xl font-black text-slate-800 outline-none focus:border-amber-500 focus:bg-white transition-all shadow-sm"
+                  className="w-full pr-12 pl-4 py-4 bg-slate-50 border-2 border-slate-50 rounded-2xl font-black text-slate-800 outline-none focus:border-slate-800 focus:bg-white transition-all shadow-sm"
                 />
              </div>
              <div className="relative sm:w-64">
@@ -195,10 +251,10 @@ const GraduatesView: React.FC<Props> = ({ state }) => {
                 <select 
                   value={selectedSeasonFilter} 
                   onChange={e => setSelectedSeasonFilter(e.target.value)}
-                  className="w-full pr-12 pl-4 py-4 bg-slate-50 border-2 border-slate-50 rounded-2xl font-black text-slate-800 outline-none focus:border-amber-500 appearance-none shadow-sm"
+                  className="w-full pr-12 pl-4 py-4 bg-slate-50 border-2 border-slate-50 rounded-2xl font-black text-slate-800 outline-none focus:border-slate-800 appearance-none shadow-sm"
                 >
                   <option value="all">كافة المواسم</option>
-                  {graduateSeasons.map(s => <option key={s} value={s}>موسم {s}</option>)}
+                  {graduateSeasons.map(s => <option key={s} value={s}>آخر تواجد في {s}</option>)}
                 </select>
              </div>
           </div>
@@ -206,40 +262,41 @@ const GraduatesView: React.FC<Props> = ({ state }) => {
 
         {/* عرض النتائج */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredGraduates.length > 0 ? (
-            filteredGraduates.map((grad) => (
+          {filteredArchivedList.length > 0 ? (
+            filteredArchivedList.map((student) => (
               <button 
-                key={grad.id} 
-                onClick={() => setSelectedRegNum(grad.registerNumber || null)}
-                className="p-6 bg-white border-2 border-slate-50 rounded-[2.5rem] hover:border-amber-400 transition-all hover:shadow-xl group text-right flex flex-col items-stretch"
+                key={student.registerNumber} 
+                onClick={() => setSelectedRegNum(student.registerNumber)}
+                className="p-6 bg-white border-2 border-slate-50 rounded-[2.5rem] hover:border-slate-400 transition-all hover:shadow-xl group text-right flex flex-col items-stretch"
               >
                 <div className="flex items-start justify-between mb-4">
-                  <div className="p-3 bg-amber-50 text-amber-600 rounded-xl group-hover:bg-amber-500 group-hover:text-white transition-colors">
-                    <Medal size={24} />
+                  <div className={`p-3 rounded-xl group-hover:bg-slate-800 group-hover:text-white transition-colors ${student.isGraduate ? 'bg-amber-50 text-amber-600' : (student.status === 'dismissed' ? 'bg-red-50 text-red-600' : 'bg-blue-50 text-blue-600')}`}>
+                    {student.isGraduate ? <Medal size={24} /> : (student.status === 'dismissed' ? <UserX size={24} /> : <UserCircle size={24} />)}
                   </div>
-                  <span className="bg-slate-100 text-slate-500 px-3 py-1 rounded-full text-[10px] font-black group-hover:bg-amber-100 group-hover:text-amber-700">دفعة {grad.graduationYear}</span>
+                  <span className={`px-3 py-1 rounded-full text-[10px] font-black ${student.isGraduate ? 'bg-amber-100 text-amber-700' : (student.status === 'dismissed' ? 'bg-red-100 text-red-700' : 'bg-slate-100 text-slate-500')}`}>
+                    {student.isGraduate ? 'خريج ناجح' : (student.status === 'dismissed' ? 'مفصول' : 'سجل دراسي')}
+                  </span>
                 </div>
                 
-                <h4 className="text-xl font-black text-slate-800 mb-2 group-hover:text-amber-600 transition-colors">{grad.name}</h4>
+                <h4 className="text-xl font-black text-slate-800 mb-2 group-hover:text-slate-900 transition-colors">{student.name}</h4>
                 
                 <div className="space-y-2 mt-4">
                   <div className="flex items-center gap-3 text-slate-400">
-                    <Hash size={14} className="group-hover:text-amber-500" />
-                    <span className="text-xs font-bold">رقم القيد: <span className="text-slate-800">{grad.registerNumber || '---'}</span></span>
+                    <Hash size={14} className="group-hover:text-slate-800" />
+                    <span className="text-xs font-bold">رقم القيد: <span className="text-slate-800">{student.registerNumber}</span></span>
                   </div>
                   <div className="flex items-center gap-3 text-slate-400">
-                    <Calendar size={14} className="group-hover:text-amber-500" />
-                    <span className="text-xs font-bold">الموسم: <span className="text-slate-800">{grad.seasonName}</span></span>
+                    <Calendar size={14} className="group-hover:text-slate-800" />
+                    <span className="text-xs font-bold">آخر موسم: <span className="text-slate-800">{student.lastSeason}</span></span>
                   </div>
                 </div>
 
                 <div className="mt-6 pt-4 border-t border-slate-50 flex items-center justify-between">
-                   <div className="flex items-center gap-2 text-emerald-600">
-                     <UserCheck size={14} />
-                     <span className="text-[10px] font-black uppercase tracking-widest">خريج ناجح</span>
+                   <div className="flex items-center gap-2 text-slate-500">
+                     <FileText size={14} />
+                     <span className="text-[10px] font-black uppercase tracking-widest">معاينة السجل بالكامل</span>
                    </div>
-                   <div className="text-amber-500 opacity-0 group-hover:opacity-100 flex items-center gap-1 transition-all">
-                      <span className="text-[10px] font-black">عرض السيرة</span>
+                   <div className="text-slate-800 opacity-0 group-hover:opacity-100 flex items-center gap-1 transition-all">
                       <ChevronLeft size={16} />
                    </div>
                 </div>
@@ -254,12 +311,12 @@ const GraduatesView: React.FC<Props> = ({ state }) => {
         </div>
       </div>
       
-      <div className="bg-amber-50 border-2 border-amber-100 p-8 rounded-[3rem] flex items-center gap-6">
-        <Award size={40} className="text-amber-500 shrink-0" />
+      <div className="bg-slate-50 border-2 border-slate-100 p-8 rounded-[3rem] flex items-center gap-6">
+        <Info size={40} className="text-slate-400 shrink-0" />
         <div>
-          <h4 className="font-black text-amber-800">البحث التاريخي المتقدم</h4>
-          <p className="text-sm font-bold text-amber-700/80">
-            يمكنك الآن النقر على اسم أي متخرج لعرض كامل مسيرته الدراسية (درجاته في كل الصفوف والمواسم) التي قضاها في مدرسة الأديب.
+          <h4 className="font-black text-slate-800">حول أرشيف الطلاب الشامل</h4>
+          <p className="text-sm font-bold text-slate-500">
+            هذا الأرشيف يجمع آلياً بيانات كافة التلاميذ الذين مروا على مدرسة الأديب، سواء أكملوا دراستهم أو انتقلوا لمكان آخر. يمكنك عرض "السيرة الدراسية" لأي تلميذ لمعرفة درجاته وغياباته وحالته في كل سنة دراسية قضاها في المدرسة.
           </p>
         </div>
       </div>
