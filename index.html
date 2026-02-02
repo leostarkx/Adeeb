@@ -4,7 +4,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>سجل درجات مدرسة الأديب</title>
+    <title>Ø³Ø¬Ù Ø¯Ø±Ø¬Ø§Øª ÙØ¯Ø±Ø³Ø© Ø§ÙØ£Ø¯ÙØ¨</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;700;900&display=swap" rel="stylesheet">
     <style>
@@ -39,7 +39,7 @@
       .hover\:bg-blue-700:hover { background-color: var(--primary) !important; filter: brightness(1.1); }
       .text-blue-600 { color: var(--primary) !important; }
       
-      /* تحسين البطاقات والظلال */
+      /* ØªØ­Ø³ÙÙ Ø§ÙØ¨Ø·Ø§ÙØ§Øª ÙØ§ÙØ¸ÙØ§Ù */
       .card-shadow {
         box-shadow: 0 10px 25px -5px var(--shadow-color), 0 8px 10px -6px var(--shadow-color);
       }
@@ -84,7 +84,7 @@
         to { opacity: 1; transform: translateY(0); }
       }
 
-      /* تنسيق الهيدر والسايدبار للوضع الليلي */
+      /* ØªÙØ³ÙÙ Ø§ÙÙÙØ¯Ø± ÙØ§ÙØ³Ø§ÙØ¯Ø¨Ø§Ø± ÙÙÙØ¶Ø¹ Ø§ÙÙÙÙÙ */
       [data-theme='midnight'] aside, [data-theme='midnight'] header {
         background-color: rgba(15, 23, 42, 0.8) !important;
         backdrop-filter: blur(12px);
@@ -99,20 +99,9 @@
         color: white !important;
       }
     </style>
-    <script type="importmap">
-    {
-      "imports": {
-        "react": "https://esm.sh/react@19.0.0",
-        "react/": "https://esm.sh/react@19.0.0/",
-        "react-dom": "https://esm.sh/react-dom@19.0.0",
-        "react-dom/": "https://esm.sh/react-dom@19.0.0/",
-        "lucide-react": "https://esm.sh/lucide-react@0.468.0?external=react",
-        "recharts": "https://esm.sh/recharts@2.15.0?external=react,react-dom"
-      }
-    }
-    </script>
-  </head>
+    </head>
   <body>
     <div id="root"></div>
-  </body>
+    <script type="module" src="/index.tsx"></script>
+</body>
 </html>
