@@ -57,14 +57,14 @@ export interface GradeRecord {
   finalExam?: number;
   finalGrade?: number;
   secondRound?: number;
-  decisionApplied?: number; // الدرجة المضافة بقرار (مثلاً 3 درجات لتصبح 50)
+  decisionApplied?: number;
   finalResult?: number;
 }
 
 export interface AttendanceRecord {
   studentId: string;
-  date: string; // ISO format YYYY-MM-DD
-  type: 'absent' | 'excused'; // غائب أو مجاز
+  date: string;
+  type: 'absent' | 'excused';
 }
 
 export interface Season {
@@ -74,7 +74,7 @@ export interface Season {
   managerName?: string;
   subjects: Record<number, Subject[]>;
   sections: Record<number, string[]>;
-  sectionAdvisors?: Record<number, Record<string, string>>; // gradeId -> { sectionName: teacherId }
+  sectionAdvisors?: Record<number, Record<string, string>>;
   teachers: Teacher[];
   students: Student[];
   grades: GradeRecord[];
@@ -95,12 +95,21 @@ export interface ThemeSettings {
   border: string;
 }
 
+export interface GoogleDriveConfig {
+  isConnected: boolean;
+  lastSync?: string;
+  autoSync: boolean;
+  fileName: string;
+}
+
 export interface AppState {
+  schoolName: string;
   seasons: Season[];
   graduates: Graduate[];
   activeSeasonId: string | null;
   theme: ThemeType;
   themeConfig?: Record<ThemeType, ThemeSettings>;
+  driveConfig?: GoogleDriveConfig;
 }
 
 export const GRADE_NAMES: Record<number, string> = {
@@ -114,35 +123,35 @@ export const GRADE_NAMES: Record<number, string> = {
 
 export const DEFAULT_THEMES: Record<ThemeType, ThemeSettings> = {
   classic: {
-    primary: '#2563eb', // Royal Blue
+    primary: '#1d4ed8',
     bg: '#f8fafc',
     card: '#ffffff',
-    text: '#1e293b',
+    text: '#0f172a',
     muted: '#64748b',
     border: '#e2e8f0'
   },
   nature: {
-    primary: '#10b981', // Emerald Green
+    primary: '#059669',
     bg: '#f0fdf4',
     card: '#ffffff',
     text: '#064e3b',
-    muted: '#6b7280',
+    muted: '#4b5563',
     border: '#dcfce7'
   },
   creative: {
-    primary: '#8b5cf6', // Electric Violet
+    primary: '#7c3aed',
     bg: '#faf5ff',
     card: '#ffffff',
     text: '#4c1d95',
-    muted: '#7c3aed',
+    muted: '#6b7280',
     border: '#f3e8ff'
   },
   midnight: {
-    primary: '#60a5fa', // Light Blue Accent
-    bg: '#020617', // Rich Navy Black
-    card: '#0f172a', // Slate 900
-    text: '#f1f5f9',
+    primary: '#38bdf8',
+    bg: '#0f172a',
+    card: '#1e293b',
+    text: '#f8fafc',
     muted: '#94a3b8',
-    border: '#1e293b'
+    border: '#334155'
   }
 };

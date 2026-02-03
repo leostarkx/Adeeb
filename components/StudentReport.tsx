@@ -10,9 +10,10 @@ import {
 
 interface Props {
   season: Season;
+  schoolName: string;
 }
 
-const StudentReport: React.FC<Props> = ({ season }) => {
+const StudentReport: React.FC<Props> = ({ season, schoolName }) => {
   const [reportType, setReportType] = useState<'individual' | 'class' | 'absences'>('individual');
   const [reportPeriod, setReportPeriod] = useState<'midyear' | 'final'>('midyear');
   const [selectedGrade, setSelectedGrade] = useState<number>(1);
@@ -93,7 +94,7 @@ const StudentReport: React.FC<Props> = ({ season }) => {
           <div className="flex justify-between items-start mb-4 font-black text-[12px] text-slate-900 min-w-[800px]">
              <div className="text-right space-y-1">
                 <p>جمهورية العراق</p>
-                <p>مدرسة الأديب الابتدائية</p>
+                <p>{schoolName}</p>
              </div>
              <div className="text-center">
                 <p className="text-lg">سجل درجات {isPrimary ? 'الصفوف الأولية' : 'الصفوف العليا'} المجمع</p>
@@ -190,7 +191,7 @@ const StudentReport: React.FC<Props> = ({ season }) => {
                  <p className="font-black text-[10px]">{getAdvisorName(selectedGrade, selectedSection)}</p>
                </div>
                <div className="text-center">
-                 <p className="mb-10">مدير مدرسة الأديب</p>
+                 <p className="mb-10">مدير المؤسسة</p>
                  <p className="font-black text-sm">{season.managerName || '........................'}</p>
                </div>
             </div>
@@ -221,7 +222,7 @@ const StudentReport: React.FC<Props> = ({ season }) => {
              <div className="text-right space-y-1 font-black text-xs text-slate-900">
                <p>جمهورية العراق</p>
                <p>وزارة التربية</p>
-               <p>مدرسة الأديب الابتدائية للبنين</p>
+               <p>{schoolName}</p>
              </div>
              <div className="text-center">
                 <div className="bg-red-50 p-4 rounded-3xl inline-block mb-3 no-print">
@@ -316,7 +317,7 @@ const StudentReport: React.FC<Props> = ({ season }) => {
               <p className="text-lg">{getAdvisorName(student.grade, student.section)}</p>
             </div>
             <div className="text-center font-black">
-              <p className="mb-12 underline decoration-dotted text-xs">مدير مدرسة الأديب</p>
+              <p className="mb-12 underline decoration-dotted text-xs">مدير المؤسسة</p>
               <p className="text-xl">{season.managerName || '........................'}</p>
             </div>
           </div>
@@ -350,8 +351,7 @@ const StudentReport: React.FC<Props> = ({ season }) => {
             <div className="flex justify-between items-start mb-8 font-black text-[11px] text-slate-900 border-b-2 border-slate-900 pb-4">
                <div className="text-right space-y-1">
                   <p>إدارة</p>
-                  <p>مدرسة الأديب</p>
-                  <p>الابتدائية</p>
+                  <p>{schoolName}</p>
                </div>
                <div className="text-center">
                   <p className="text-xl font-black mb-2">سجل درجات الدروس للصف {GRADE_NAMES[student.grade]}</p>
@@ -442,7 +442,7 @@ const StudentReport: React.FC<Props> = ({ season }) => {
                </div>
                <div className="text-center font-black opacity-30">
                   <p className="text-[10px]">ختم المدرسة</p>
-                  <div className="w-24 h-24 border-4 border-slate-900 rounded-full mt-2 flex items-center justify-center italic text-xs">الأديب</div>
+                  <div className="w-24 h-24 border-4 border-slate-900 rounded-full mt-2 flex items-center justify-center italic text-xs">شعار المؤسسة</div>
                </div>
             </div>
           </div>
@@ -475,7 +475,7 @@ const StudentReport: React.FC<Props> = ({ season }) => {
                <div className="text-right font-black text-xs leading-relaxed">
                  <p>جمهورية العراق</p>
                  <p>وزارة التربية</p>
-                 <p>مدرسة الأديب الابتدائية للبنين</p>
+                 <p>{schoolName}</p>
                </div>
                <div className="flex flex-col items-center">
                  <Trophy size={60} className="text-amber-500 mb-2 no-print" />
@@ -555,7 +555,7 @@ const StudentReport: React.FC<Props> = ({ season }) => {
               <p className="text-lg">{getAdvisorName(student.grade, student.section)}</p>
             </div>
             <div className="text-center font-black">
-              <p className="mb-12 underline decoration-dotted text-xs">مدير مدرسة الأديب</p>
+              <p className="mb-12 underline decoration-dotted text-xs">مدير المؤسسة</p>
               <p className="text-xl">{season.managerName || '........................'}</p>
             </div>
           </div>

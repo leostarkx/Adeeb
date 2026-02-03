@@ -15,7 +15,7 @@ const Dashboard: React.FC<Props> = ({ state }) => {
     { label: 'المواسم الدراسية', value: state.seasons.length, icon: Calendar, color: 'text-blue-600', bg: 'bg-blue-50' },
     { label: 'الطلاب المسجلين', value: activeSeason?.students.length || 0, icon: Users, color: 'text-emerald-600', bg: 'bg-emerald-50' },
     { label: 'المعلمون', value: activeSeason?.teachers.length || 0, icon: GraduationCap, color: 'text-purple-600', bg: 'bg-purple-50' },
-    { label: 'المواسم الدراسية', value: activeSeason ? Object.values(activeSeason.subjects).flat().length : 0, icon: BookOpen, color: 'text-amber-600', bg: 'bg-amber-50' },
+    { label: 'المواد الدراسية', value: activeSeason ? Object.values(activeSeason.subjects).flat().length : 0, icon: BookOpen, color: 'text-amber-600', bg: 'bg-amber-50' },
   ];
 
   return (
@@ -23,7 +23,7 @@ const Dashboard: React.FC<Props> = ({ state }) => {
       {/* Welcome Hero */}
       <div className="relative overflow-hidden bg-gradient-to-r from-blue-600 to-blue-800 rounded-[3rem] p-12 text-white shadow-xl">
         <div className="relative z-10">
-          <h1 className="text-4xl font-black mb-4">مدرسة الأديب الابتدائية للبنين</h1>
+          <h1 className="text-4xl font-black mb-4">{state.schoolName}</h1>
           <p className="text-blue-100 text-lg max-w-2xl font-bold">
             أهلاً بك في نظام إدارة ورصد الدرجات المطور. يمكنك البدء بإدارة المواسم الدراسية أو رصد درجات الطلاب من خلال القائمة الجانبية.
           </p>

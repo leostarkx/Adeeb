@@ -5,6 +5,7 @@ import { Medal, Printer, Trophy, Star, Crown, Award, ArrowRight } from 'lucide-r
 
 interface Props {
   season: Season;
+  schoolName: string;
 }
 
 interface RankedStudent extends Student {
@@ -12,7 +13,7 @@ interface RankedStudent extends Student {
   rank: number;
 }
 
-const HonorBoard: React.FC<Props> = ({ season }) => {
+const HonorBoard: React.FC<Props> = ({ season, schoolName }) => {
   const [selectedGrade, setSelectedGrade] = useState<number>(1);
   const [selectedStudentForCert, setSelectedStudentForCert] = useState<RankedStudent | null>(null);
 
@@ -71,7 +72,7 @@ const HonorBoard: React.FC<Props> = ({ season }) => {
                 <div className="text-right font-black text-xs">
                   <p>وزارة التربية</p>
                   <p>مديرية التربية</p>
-                  <p>مدرسة الأديب الابتدائية</p>
+                  <p>{schoolName}</p>
                 </div>
                 <Trophy size={60} className="text-amber-500" />
                 <div className="text-left font-black text-xs">
@@ -83,7 +84,7 @@ const HonorBoard: React.FC<Props> = ({ season }) => {
               <h1 className="text-6xl font-black text-amber-600 mb-10" style={{ fontFamily: 'Tajawal' }}>شهادة تقدير وتفوق</h1>
               
               <div className="space-y-6">
-                <p className="text-2xl font-bold">تسر إدارة مدرسة الأديب الابتدائية للبنين أن تمنح هذه الشهادة للتلميذ المتفوق:</p>
+                <p className="text-2xl font-bold">تسر إدارة {schoolName} أن تمنح هذه الشهادة للتلميذ المتفوق:</p>
                 <div className="relative inline-block px-12 py-4 border-b-4 border-amber-500">
                   <span className="text-4xl font-black text-slate-800">{selectedStudentForCert.name}</span>
                 </div>
@@ -91,7 +92,7 @@ const HonorBoard: React.FC<Props> = ({ season }) => {
                 <p className="text-2xl font-bold">بمعدل قدره <span className="bg-amber-100 px-4 py-1 rounded-xl text-amber-700 font-black">{selectedStudentForCert.average.toFixed(1)}%</span></p>
               </div>
 
-              <p className="text-xl italic mt-10 px-20 text-slate-600">نتمنى لك دوام الموفقية والنجاح لخدمة عراقنا الحبيب وأهلك الكرام.</p>
+              <p className="text-xl italic mt-10 px-20 text-slate-600">نتمنى لك دوام الموفقية والنجاح لخدمة بلدنا الحبيب وأهلك الكرام.</p>
 
               <div className="mt-20 flex justify-around items-end w-full">
                 <div className="text-center font-black">
@@ -101,7 +102,7 @@ const HonorBoard: React.FC<Props> = ({ season }) => {
                 <div className="text-center">
                   <Crown size={40} className="mx-auto text-amber-400 mb-2 no-print" />
                   <div className="font-black text-center">
-                    <p className="mb-14">مدير المدرسة</p>
+                    <p className="mb-14">مدير المؤسسة</p>
                     <p className="text-xl text-slate-800">{season.managerName || '........................'}</p>
                   </div>
                 </div>

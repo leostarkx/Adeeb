@@ -108,7 +108,7 @@ const SeasonManager: React.FC<Props> = ({ state, setState }) => {
         </h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <input type="text" value={newName} onChange={e => setNewName(e.target.value)} placeholder="اسم الموسم (مثلاً: 2024-2025)" className="px-6 py-4 border-2 border-white rounded-2xl bg-white font-bold outline-none focus:border-blue-600 text-black shadow-sm" />
-          <input type="text" value={newManager} onChange={e => setNewManager(e.target.value)} placeholder="اسم مدير مدرسة الأديب..." className="px-6 py-4 border-2 border-white rounded-2xl bg-white font-bold outline-none focus:border-blue-600 text-black shadow-sm" />
+          <input type="text" value={newManager} onChange={e => setNewManager(e.target.value)} placeholder="اسم مدير المؤسسة..." className="px-6 py-4 border-2 border-white rounded-2xl bg-white font-bold outline-none focus:border-blue-600 text-black shadow-sm" />
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-6 bg-white rounded-3xl">
            <div className="flex flex-col"><label className="text-[10px] font-black text-slate-400 mb-2">أصغر تولد مسموح (تدقيق عمري)</label><input type="number" value={minYear} onChange={e => setMinYear(parseInt(e.target.value))} className="px-4 py-3 border rounded-xl font-bold text-blue-600" /></div>

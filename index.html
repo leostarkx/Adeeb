@@ -4,7 +4,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>سجل درجات مدرسة الأديب</title>
+    <title>نظام إدارة المؤسسات التعليمية</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;700;900&display=swap" rel="stylesheet">
     <style>
@@ -16,50 +16,56 @@
         --text-muted: #64748b;
         --border-color: #e2e8f0;
         --shadow-color: rgba(0, 0, 0, 0.05);
+        --input-bg: #ffffff;
       }
 
       [data-theme='midnight'] {
-        --shadow-color: rgba(0, 0, 0, 0.5);
+        --shadow-color: rgba(0, 0, 0, 0.4);
+        --input-bg: #1e293b;
       }
 
       body {
         font-family: 'Tajawal', sans-serif;
         background-color: var(--bg-main);
         color: var(--text-main);
-        transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        transition: background-color 0.4s ease, color 0.4s ease;
         overflow-x: hidden;
       }
       
+      /* التصحيح اللوني الشامل للعناصر */
       .bg-white { background-color: var(--card-bg) !important; }
-      .text-slate-900, .text-slate-800 { color: var(--text-main) !important; }
-      .text-slate-400, .text-slate-500 { color: var(--text-muted) !important; }
-      .border-gray-50, .border-gray-100, .border-slate-100 { border-color: var(--border-color) !important; }
+      .text-slate-900, .text-slate-800, .text-gray-800 { color: var(--text-main) !important; }
+      .text-slate-400, .text-slate-500, .text-gray-400, .text-gray-500 { color: var(--text-muted) !important; }
+      .border-gray-50, .border-gray-100, .border-slate-100, .border-slate-50 { border-color: var(--border-color) !important; }
       
       .bg-blue-600 { background-color: var(--primary) !important; }
-      .hover\:bg-blue-700:hover { background-color: var(--primary) !important; filter: brightness(1.1); }
-      .text-blue-600 { color: var(--primary) !important; }
+      .text-blue-600, .text-blue-700 { color: var(--primary) !important; }
       
-      /* تحسين البطاقات والظلال */
-      .card-shadow {
-        box-shadow: 0 10px 25px -5px var(--shadow-color), 0 8px 10px -6px var(--shadow-color);
-      }
-
-      .bg-blue-50 { background-color: color-mix(in srgb, var(--primary), transparent 92%) !important; color: var(--primary); }
-      .bg-emerald-50 { background-color: #ecfdf5 !important; }
-      .bg-purple-50 { background-color: #f5f3ff !important; }
-      .bg-amber-50 { background-color: #fffbeb !important; }
-      .bg-red-50 { background-color: #fef2f2 !important; }
-
-      input, select, textarea {
-        color: var(--text-main) !important;
-        background-color: var(--card-bg) !important;
+      /* تخصيص الثيم الليلي بشكل دقيق */
+      [data-theme='midnight'] aside, 
+      [data-theme='midnight'] header,
+      [data-theme='midnight'] .bg-slate-50,
+      [data-theme='midnight'] .bg-gray-50 {
+        background-color: color-mix(in srgb, var(--card-bg), transparent 30%) !important;
         border-color: var(--border-color) !important;
-        transition: border-color 0.2s, box-shadow 0.2s;
       }
 
-      input:focus, select:focus {
-        border-color: var(--primary) !important;
-        box-shadow: 0 0 0 4px color-mix(in srgb, var(--primary), transparent 85%);
+      [data-theme='midnight'] input, 
+      [data-theme='midnight'] select, 
+      [data-theme='midnight'] textarea {
+        background-color: var(--input-bg) !important;
+        color: #f8fafc !important;
+        border-color: var(--border-color) !important;
+      }
+
+      [data-theme='midnight'] .bg-blue-50 { background-color: rgba(56, 189, 248, 0.1) !important; color: #7dd3fc !important; }
+      [data-theme='midnight'] .bg-emerald-50 { background-color: rgba(52, 211, 153, 0.1) !important; color: #6ee7b7 !important; }
+      [data-theme='midnight'] .bg-amber-50 { background-color: rgba(251, 191, 36, 0.1) !important; color: #fcd34d !important; }
+      [data-theme='midnight'] .bg-red-50 { background-color: rgba(248, 113, 113, 0.1) !important; color: #fca5a5 !important; }
+
+      /* البطاقات والظلال */
+      .card-shadow {
+        box-shadow: 0 10px 25px -5px var(--shadow-color);
       }
 
       .custom-scrollbar::-webkit-scrollbar { width: 8px; }
@@ -68,11 +74,6 @@
         background: var(--border-color);
         border-radius: 20px;
         border: 2px solid var(--bg-main);
-      }
-
-      @media print {
-        .no-print { display: none !important; }
-        body, html, #root { background: white !important; color: black !important; }
       }
 
       .animate-in { 
@@ -84,19 +85,9 @@
         to { opacity: 1; transform: translateY(0); }
       }
 
-      /* تنسيق الهيدر والسايدبار للوضع الليلي */
-      [data-theme='midnight'] aside, [data-theme='midnight'] header {
-        background-color: rgba(15, 23, 42, 0.8) !important;
-        backdrop-filter: blur(12px);
-      }
-
-      [data-theme='midnight'] nav button:not(.bg-blue-600) {
-        color: #94a3b8 !important;
-      }
-
-      [data-theme='midnight'] nav button:hover:not(.bg-blue-600) {
-        background-color: rgba(255, 255, 255, 0.05) !important;
-        color: white !important;
+      @media print {
+        .no-print { display: none !important; }
+        body, html, #root { background: white !important; color: black !important; }
       }
     </style>
     <script type="importmap">
