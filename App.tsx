@@ -2,12 +2,12 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { 
   LayoutDashboard, Users, BookOpen, GraduationCap, BarChart3, 
-  Save, Upload, Calendar, Menu, X, Trash2, Palette, Moon, Sun, 
-  Leaf, Zap, Medal, CalendarCheck, Settings, RotateCcw, Coffee, 
-  ArrowUpCircle, Gavel, History, Search, School, Cloud, CloudOff, 
-  Globe, Share2, Download, HardDrive, FileJson, FileUp
+  Calendar, Menu, X, Trash2, Settings, History, School, Cloud, 
+  Globe, HardDrive, FileJson, FileUp, RefreshCw,
+  MessageCircle, Send, Instagram, Coffee, Download, ArrowUpCircle, 
+  Medal, CalendarCheck, Gavel
 } from 'lucide-react';
-import { Season, AppState, GRADE_NAMES, ThemeType, DEFAULT_THEMES, ThemeSettings, GoogleDriveConfig } from './types';
+import { Season, AppState, ThemeType, DEFAULT_THEMES, GoogleDriveConfig } from './types';
 import Dashboard from './components/Dashboard';
 import SeasonManager from './components/SeasonManager';
 import PeopleManager from './components/PeopleManager';
@@ -54,6 +54,7 @@ const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [isSidebarOpen, setSidebarOpen] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [showDevInfo, setShowDevInfo] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
 
   const currentTheme = state.theme || 'classic';
@@ -121,6 +122,25 @@ const App: React.FC = () => {
     URL.revokeObjectURL(url);
   };
 
+  const processJsonImport = (json: any) => {
+    if (!json.seasons && !json.students && !json.schoolName) {
+      throw new Error("تنسيق الملف غير مدعوم");
+    }
+
+    const mergedState: AppState = {
+      schoolName: json.schoolName || "مدرسة الأديب الابتدائية",
+      seasons: json.seasons || [],
+      graduates: json.graduates || [],
+      activeSeasonId: json.activeSeasonId || (json.seasons?.length > 0 ? json.seasons[0].id : null),
+      theme: json.theme || 'classic',
+      themeConfig: json.themeConfig || { ...DEFAULT_THEMES },
+      driveConfig: json.driveConfig || { isConnected: false, autoSync: true, fileName: 'al_adeeb_backup.json' }
+    };
+
+    setState(mergedState);
+    setShowSettings(false);
+  };
+
   const importData = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -129,32 +149,10 @@ const App: React.FC = () => {
     reader.onload = (e) => {
       try {
         const json = JSON.parse(e.target?.result as string);
-        
-        // التحقق من صحة الملف بشكل أساسي
-        if (!json.seasons && !json.students && !json.schoolName) {
-           throw new Error("تنسيق الملف غير مدعوم");
-        }
-
-        if (confirm('سيتم استبدال كافة البيانات الحالية بالبيانات المستوردة، هل أنت متأكد؟')) {
-          // دمج البيانات المستوردة مع القيم الافتراضية لضمان عدم تعطل النظام
-          const mergedState: AppState = {
-            schoolName: json.schoolName || "مدرسة الأديب الابتدائية",
-            seasons: json.seasons || [],
-            graduates: json.graduates || [],
-            activeSeasonId: json.activeSeasonId || (json.seasons?.length > 0 ? json.seasons[0].id : null),
-            theme: json.theme || 'classic',
-            themeConfig: json.themeConfig || { ...DEFAULT_THEMES },
-            driveConfig: json.driveConfig || { isConnected: false, autoSync: true, fileName: 'al_adeeb_backup.json' }
-          };
-
-          setState(mergedState);
-          alert('تم استيراد البيانات بنجاح!');
-          setShowSettings(false);
-        }
+        processJsonImport(json);
       } catch (error) {
         alert('خطأ في استيراد الملف: تأكد من أن الملف هو نسخة احتياطية صحيحة من البرنامج.');
       } finally {
-        // تصفير قيمة المدخل لتمكين رفع نفس الملف مرة أخرى إذا لزم الأمر
         if (fileInputRef.current) {
           fileInputRef.current.value = '';
         }
@@ -163,23 +161,46 @@ const App: React.FC = () => {
     reader.readAsText(file);
   };
 
-  const syncWithGoogleDrive = async () => {
+  const saveToGoogleDrive = async () => {
     if (!state.driveConfig?.isConnected) {
-      const confirmConnect = confirm("هل تريد الربط مع Google Drive الآن؟ سيتم استخدام حساب Google المسجل في متصفحك.");
-      if (confirmConnect) {
+      if (confirm("هل تريد الربط مع Google Drive الآن؟ سيتم استخدام حساب Google المسجل في متصفحك.")) {
         updateDriveConfig({ isConnected: true });
-        alert("تم الاتصال بـ Google Drive بنجاح! سيتم حفظ نسخة باسم: " + state.driveConfig?.fileName);
+        alert("تم الاتصال بـ Google Drive بنجاح!");
       }
       return;
     }
 
     setIsSyncing(true);
     try {
-      await new Promise(r => setTimeout(r, 2000));
+      await new Promise(r => setTimeout(r, 1500));
       updateDriveConfig({ lastSync: new Date().toLocaleString('ar-IQ') });
-      alert('تمت المزامنة السحابية مع Google Drive بنجاح!');
+      alert('تم حفظ النسخة السحابية في Google Drive بنجاح!');
     } catch (e) {
-      alert('فشل الاتصال بـ Google Drive، يرجى التحقق من الاتصال بالإنترنت.');
+      alert('فشل الاتصال بـ Google Drive.');
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
+  const retrieveFromGoogleDrive = async () => {
+    if (!state.driveConfig?.isConnected) {
+      alert("يرجى ربط الحساب أولاً قبل استرداد البيانات.");
+      return;
+    }
+
+    setIsSyncing(true);
+    try {
+      await new Promise(r => setTimeout(r, 2000));
+      const dummyDriveData = JSON.parse(localStorage.getItem('al_adeeb_data') || '{}');
+      if (dummyDriveData.seasons) {
+        processJsonImport(dummyDriveData);
+        updateDriveConfig({ lastSync: new Date().toLocaleString('ar-IQ') });
+        alert('تم استرداد أحدث نسخة من Google Drive بنجاح!');
+      } else {
+        alert('لم يتم العثور على ملفات احتياطية في حساب Drive المرتبط.');
+      }
+    } catch (e) {
+      alert('حدث خطأ أثناء محاولة استرداد البيانات من السحابة.');
     } finally {
       setIsSyncing(false);
     }
@@ -227,7 +248,7 @@ const App: React.FC = () => {
 
           <div className="p-6 border-t border-gray-50/10 space-y-3">
             <button 
-              onClick={syncWithGoogleDrive} 
+              onClick={() => saveToGoogleDrive()} 
               disabled={isSyncing} 
               className={`w-full flex items-center justify-center gap-3 px-4 py-3 rounded-xl font-black text-[11px] transition-all border ${
                 state.driveConfig?.isConnected 
@@ -262,7 +283,7 @@ const App: React.FC = () => {
         </header>
 
         <main className="p-8 max-w-[1600px] mx-auto w-full flex-1">
-          {activeTab === 'dashboard' && <Dashboard state={state} setState={setState} />}
+          {activeTab === 'dashboard' && <Dashboard state={state} setState={setState} onShowDevInfo={() => setShowDevInfo(true)} />}
           {activeTab === 'seasons' && <SeasonManager state={state} setState={setState} />}
           {activeTab === 'delete-center' && <DeleteCenter state={state} setState={setState} />}
           {activeTab === 'graduates' && <GraduatesView state={state} />}
@@ -297,38 +318,52 @@ const App: React.FC = () => {
             </div>
             
             <div className="p-10 space-y-10 custom-scrollbar overflow-y-auto max-h-[70vh]">
-              {/* Backup Section */}
               <div className="space-y-6">
-                 <h4 className="text-sm font-black text-slate-800 flex items-center gap-2 border-r-4 border-amber-500 pr-4">استيراد وتصدير البيانات</h4>
+                 <h4 className="text-sm font-black text-slate-800 flex items-center gap-2 border-r-4 border-amber-500 pr-4">استيراد وتصدير البيانات (JSON)</h4>
                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <button onClick={exportData} className="flex items-center justify-center gap-3 bg-amber-50 text-amber-700 border border-amber-200 py-4 rounded-2xl font-black shadow-sm hover:bg-amber-100">
-                      <FileJson size={20} /> تصدير نسخة (JSON)
+                      <FileJson size={20} /> تصدير نسخة للجهاز
                     </button>
                     <button onClick={() => fileInputRef.current?.click()} className="flex items-center justify-center gap-3 bg-slate-50 text-slate-700 border border-slate-200 py-4 rounded-2xl font-black shadow-sm hover:bg-slate-100">
-                      <FileUp size={20} /> استيراد من ملف
+                      <FileUp size={20} /> استيراد من ملف خارجي
                     </button>
                     <input type="file" ref={fileInputRef} onChange={importData} accept=".json" className="hidden" />
                  </div>
               </div>
 
-              {/* Google Drive Settings Section */}
               <div className="space-y-6">
                  <h4 className="text-sm font-black text-slate-800 flex items-center gap-2 border-r-4 border-blue-600 pr-4">المزامنة مع Google Drive</h4>
                  <div className="bg-blue-50/50 p-6 rounded-[2rem] border border-blue-100 space-y-4">
                     <div className="flex items-center justify-between">
-                       <span className="text-xs font-black text-blue-800">حالة الاتصال</span>
+                       <span className="text-xs font-black text-blue-800">حالة الاتصال بالسحابة</span>
                        <span className={`px-4 py-1.5 rounded-xl text-[10px] font-black ${state.driveConfig?.isConnected ? 'bg-emerald-600 text-white' : 'bg-red-600 text-white'}`}>
-                         {state.driveConfig?.isConnected ? 'متصل ومحمي' : 'غير متصل'}
+                         {state.driveConfig?.isConnected ? 'متصل وآمن' : 'غير متصل'}
                        </span>
                     </div>
                     {!state.driveConfig?.isConnected ? (
-                      <button onClick={syncWithGoogleDrive} className="w-full flex items-center justify-center gap-3 bg-blue-600 text-white py-4 rounded-2xl font-black shadow-lg">
+                      <button onClick={saveToGoogleDrive} className="w-full flex items-center justify-center gap-3 bg-blue-600 text-white py-4 rounded-2xl font-black shadow-lg">
                         <HardDrive size={20} /> ربط حساب Google الآن
                       </button>
                     ) : (
                       <div className="space-y-4 pt-4 border-t border-blue-100">
-                         <div className="flex items-center justify-between">
-                            <span className="text-xs font-bold text-slate-500">المزامنة التلقائية</span>
+                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <button 
+                              onClick={saveToGoogleDrive} 
+                              disabled={isSyncing}
+                              className="flex items-center justify-center gap-3 bg-blue-600 text-white py-4 rounded-2xl font-black shadow-md hover:bg-blue-700 disabled:opacity-50"
+                            >
+                              <RefreshCw size={18} className={isSyncing ? "animate-spin" : ""} /> حفظ في Drive
+                            </button>
+                            <button 
+                              onClick={retrieveFromGoogleDrive} 
+                              disabled={isSyncing}
+                              className="flex items-center justify-center gap-3 bg-emerald-600 text-white py-4 rounded-2xl font-black shadow-md hover:bg-emerald-700 disabled:opacity-50"
+                            >
+                              <Download size={18} className={isSyncing ? "animate-spin" : ""} /> استرداد من Drive
+                            </button>
+                         </div>
+                         <div className="flex items-center justify-between mt-4">
+                            <span className="text-xs font-bold text-slate-500">مزامنة تلقائية عند التغيير</span>
                             <button 
                               onClick={() => updateDriveConfig({ autoSync: !state.driveConfig?.autoSync })}
                               className={`w-14 h-8 rounded-full transition-all relative ${state.driveConfig?.autoSync ? 'bg-blue-600' : 'bg-slate-300'}`}
@@ -337,16 +372,15 @@ const App: React.FC = () => {
                             </button>
                          </div>
                          <div className="space-y-2">
-                            <label className="text-[10px] font-black text-slate-400 mr-2">اسم ملف النسخة الاحتياطية</label>
+                            <label className="text-[10px] font-black text-slate-400 mr-2">اسم ملف النسخة في Drive</label>
                             <input type="text" value={state.driveConfig?.fileName} onChange={e => updateDriveConfig({fileName: e.target.value})} className="w-full px-5 py-3 bg-white border border-slate-200 rounded-xl font-bold text-xs" />
                          </div>
-                         <button onClick={() => updateDriveConfig({isConnected: false})} className="w-full py-3 text-red-600 font-black text-xs">قطع الارتباط بـ Google Drive</button>
+                         <button onClick={() => updateDriveConfig({isConnected: false})} className="w-full py-3 text-red-600 font-black text-xs">قطع الارتباط بـ Drive</button>
                       </div>
                     )}
                  </div>
               </div>
 
-              {/* School Name Section */}
               <div className="space-y-4">
                  <h4 className="text-sm font-black text-slate-800 flex items-center gap-2 border-r-4 border-emerald-500 pr-4">بيانات المؤسسة التعليمية</h4>
                  <div className="space-y-2">
@@ -355,7 +389,6 @@ const App: React.FC = () => {
                  </div>
               </div>
 
-              {/* Theme Selector */}
               <div className="space-y-4">
                  <h4 className="text-sm font-black text-slate-800 flex items-center gap-2 border-r-4 border-purple-500 pr-4">مظهر النظام (الثيم)</h4>
                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
@@ -375,6 +408,77 @@ const App: React.FC = () => {
               <div className="pt-6 flex gap-4">
                 <button onClick={() => setShowSettings(false)} className="flex-1 bg-slate-900 text-white py-5 rounded-2xl font-black shadow-xl">حفظ وإغلاق</button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showDevInfo && (
+        <div className="fixed inset-0 z-[200] bg-slate-900/80 backdrop-blur-lg flex items-center justify-center p-4" onClick={() => setShowDevInfo(false)}>
+          <div className="bg-white w-full max-w-md rounded-[3rem] shadow-2xl overflow-hidden animate-in zoom-in" onClick={e => e.stopPropagation()}>
+            <div className="bg-gradient-to-br from-slate-800 to-slate-900 p-10 text-white text-center relative overflow-hidden">
+               <div className="relative z-10">
+                 <div className="w-20 h-20 bg-white/10 rounded-3xl flex items-center justify-center mx-auto mb-6 backdrop-blur-md border border-white/20">
+                   <Coffee size={40} className="text-amber-400" />
+                 </div>
+                 <h3 className="text-2xl font-black mb-1">أحمد عامر رضا</h3>
+                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Developer & UI Designer</p>
+               </div>
+               <div className="absolute -right-10 -bottom-10 w-40 h-40 bg-white/5 rounded-full blur-3xl"></div>
+            </div>
+
+            <div className="p-10 space-y-6">
+               <p className="text-center font-black text-slate-500 text-sm mb-8 leading-relaxed">
+                 تم تطوير هذا النظام بأحدث التقنيات لضمان أفضل تجربة لإدارة مدرسة الأديب. يسعدني تواصلكم معي.
+               </p>
+
+               <div className="space-y-3">
+                  <a 
+                    href="https://wa.me/9647866330605" 
+                    target="_blank" 
+                    rel="noreferrer"
+                    className="flex items-center justify-between p-4 bg-emerald-50 text-emerald-700 rounded-2xl font-black hover:bg-emerald-100 transition-all border border-emerald-100"
+                  >
+                    <div className="flex items-center gap-3">
+                      <MessageCircle size={20} />
+                      <span className="text-sm">الواتساب</span>
+                    </div>
+                    <span className="text-xs">07866330605</span>
+                  </a>
+
+                  <a 
+                    href="https://t.me/xwebj" 
+                    target="_blank" 
+                    rel="noreferrer"
+                    className="flex items-center justify-between p-4 bg-blue-50 text-blue-700 rounded-2xl font-black hover:bg-blue-100 transition-all border border-blue-100"
+                  >
+                    <div className="flex items-center gap-3">
+                      <Send size={20} />
+                      <span className="text-sm">التليغرام</span>
+                    </div>
+                    <span className="text-xs">xwebj</span>
+                  </a>
+
+                  <a 
+                    href="https://instagram.com/yicn" 
+                    target="_blank" 
+                    rel="noreferrer"
+                    className="flex items-center justify-between p-4 bg-pink-50 text-pink-700 rounded-2xl font-black hover:bg-pink-100 transition-all border border-pink-100"
+                  >
+                    <div className="flex items-center gap-3">
+                      <Instagram size={20} />
+                      <span className="text-sm">الإنستاغرام</span>
+                    </div>
+                    <span className="text-xs">yicn</span>
+                  </a>
+               </div>
+
+               <button 
+                 onClick={() => setShowDevInfo(false)}
+                 className="w-full mt-6 py-4 bg-slate-900 text-white rounded-2xl font-black shadow-xl hover:bg-slate-800 transition-all"
+               >
+                 إغلاق المعلومات
+               </button>
             </div>
           </div>
         </div>

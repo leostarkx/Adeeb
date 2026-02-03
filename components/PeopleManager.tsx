@@ -5,7 +5,8 @@ import {
   Plus, Trash2, GraduationCap, Users, UserPlus, Search, Edit2, X,
   Baby, Home, Phone, Briefcase, FileText, Hash, UserX,
   BookOpen, Layers, Contact2, CheckCircle2, Filter, CheckSquare,
-  ClipboardList, MapPin, Smartphone, UserCircle
+  ClipboardList, MapPin, Smartphone, UserCircle, ListPlus,
+  UsersRound, AlertCircle
 } from 'lucide-react';
 
 interface Props {
@@ -15,6 +16,7 @@ interface Props {
 
 const PeopleManager: React.FC<Props> = ({ season, onUpdate }) => {
   const [activeSubTab, setActiveSubTab] = useState<'students' | 'teachers' | 'audit'>('students');
+  const [isBulkMode, setIsBulkMode] = useState(false);
   const [selectedGrade, setSelectedGrade] = useState<number | null>(null);
   const [selectedSection, setSelectedSection] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -27,18 +29,17 @@ const PeopleManager: React.FC<Props> = ({ season, onUpdate }) => {
     registerNumber: '', pageNumber: '', recordNumber: ''
   });
 
-  // Teacher State
-  const [editingTeacherId, setEditingTeacherId] = useState<string | null>(null);
-  const [teacherForm, setTeacherForm] = useState<Partial<Teacher>>({ name: '', specialization: '', phone: '' });
-  const [managingAssignmentsId, setManagingAssignmentsId] = useState<string | null>(null);
-  const [newAssignment, setNewAssignment] = useState<TeacherAssignment>({ gradeId: 1, sectionName: '', subjectId: '' });
+  // Bulk Add State
+  const [bulkNames, setBulkNames] = useState('');
+
+  const bulkNamesCount = useMemo(() => {
+    return bulkNames.split('\n').map(n => n.trim()).filter(n => n.length > 0).length;
+  }, [bulkNames]);
 
   const getAgeStatus = (birthDate?: string) => {
     if (!birthDate || !season.minBirthYear || !season.maxBirthYear) return 'normal';
     const birthYear = new Date(birthDate).getFullYear();
-    // إذا كان المواليد أكبر من أصغر سنة مسموحة (مثلاً مواليد 2020 وأصغر سنة 2018) فهو أصغر من السن
     if (birthYear > season.minBirthYear) return 'accelerated'; 
-    // إذا كان المواليد أصغر من أكبر سنة مسموحة (مثلاً مواليد 2010 وأكبر سنة 2012) فهو أكبر من السن
     if (birthYear < season.maxBirthYear) return 'overage';
     return 'normal';
   };
@@ -51,11 +52,9 @@ const PeopleManager: React.FC<Props> = ({ season, onUpdate }) => {
       if (selectedGrade) list = list.filter(s => s.grade === selectedGrade);
       if (selectedSection) list = list.filter(s => s.section === selectedSection);
     }
-    
     if (searchTerm) {
       list = list.filter(s => s.name.includes(searchTerm) || s.registerNumber?.includes(searchTerm));
     }
-    
     return [...list].sort((a, b) => a.name.localeCompare(b.name, 'ar'));
   }, [season.students, selectedGrade, selectedSection, searchTerm, activeSubTab, season.minBirthYear, season.maxBirthYear]);
 
@@ -86,34 +85,76 @@ const PeopleManager: React.FC<Props> = ({ season, onUpdate }) => {
     });
   };
 
-  const saveTeacher = () => {
-    if (!teacherForm.name?.trim()) {
-      alert('يرجى كتابة اسم المعلم');
+  const saveBulkStudents = () => {
+    const namesArray = bulkNames.split('\n').map(n => n.trim()).filter(n => n.length > 0);
+    
+    if (namesArray.length === 0) {
+      alert('يرجى إدخال الأسماء أولاً');
+      return;
+    }
+    if (!studentForm.section) {
+      alert('يرجى اختيار الشعبة أولاً');
       return;
     }
 
-    if (editingTeacherId) {
-      onUpdate({
-        teachers: season.teachers.map(t => t.id === editingTeacherId ? { ...t, ...teacherForm } : t)
-      });
-      setEditingTeacherId(null);
-    } else {
-      const newTeacher: Teacher = { 
-        id: Date.now().toString(), 
-        name: teacherForm.name || '', 
-        specialization: teacherForm.specialization || '',
-        phone: teacherForm.phone || '',
-        assignments: [] 
-      };
-      onUpdate({ teachers: [...(season.teachers || []), newTeacher] });
-    }
-    setTeacherForm({ name: '', specialization: '', phone: '' });
+    const defaultBirthYear = season.minBirthYear || (new Date().getFullYear() - 6);
+    const defaultBirthDate = `${defaultBirthYear}-01-01`;
+
+    const newStudents: Student[] = namesArray.map((name, index) => ({
+      id: `${Date.now()}_${index}`,
+      name,
+      grade: studentForm.grade || 1,
+      section: studentForm.section || '',
+      status: 'active',
+      birthDate: defaultBirthDate,
+      parentPhone: '',
+      address: '',
+      parentJob: '',
+      registerNumber: '',
+      pageNumber: '',
+      recordNumber: ''
+    }));
+
+    onUpdate({ students: [...(season.students || []), ...newStudents] });
+    setBulkNames('');
+    setIsBulkMode(false);
+    alert(`تمت إضافة ${namesArray.length} تلميذ بنجاح إلى الصف ${GRADE_NAMES[studentForm.grade || 1]} شعبة ${studentForm.section}`);
   };
 
   const deleteStudent = (id: string) => {
     if (confirm('حذف التلميذ نهائياً؟')) {
       onUpdate({ students: (season.students || []).filter(s => s.id !== id) });
     }
+  };
+
+  // Teacher State
+  const [editingTeacherId, setEditingTeacherId] = useState<string | null>(null);
+  const [teacherForm, setTeacherForm] = useState<Partial<Teacher>>({ name: '', specialization: '', phone: '' });
+  const [managingAssignmentsId, setManagingAssignmentsId] = useState<string | null>(null);
+  const [newAssignment, setNewAssignment] = useState<TeacherAssignment>({ gradeId: 1, sectionName: '', subjectId: '' });
+
+  const saveTeacher = () => {
+    if (!teacherForm.name?.trim()) {
+      alert('يرجى إدخال اسم المعلم');
+      return;
+    }
+
+    if (editingTeacherId) {
+      onUpdate({
+        teachers: season.teachers.map(t => t.id === editingTeacherId ? { ...t, ...teacherForm } as Teacher : t)
+      });
+      setEditingTeacherId(null);
+    } else {
+      const newTeacher: Teacher = {
+        id: Date.now().toString(),
+        name: teacherForm.name || '',
+        specialization: teacherForm.specialization || '',
+        phone: teacherForm.phone || '',
+        assignments: []
+      };
+      onUpdate({ teachers: [...(season.teachers || []), newTeacher] });
+    }
+    setTeacherForm({ name: '', specialization: '', phone: '' });
   };
 
   const deleteTeacher = (id: string) => {
@@ -149,63 +190,140 @@ const PeopleManager: React.FC<Props> = ({ season, onUpdate }) => {
       {activeSubTab === 'students' && (
         <div className="space-y-8 animate-in slide-in-bottom">
           <div className="bg-white p-10 rounded-[3rem] shadow-sm border border-gray-100">
-            <h3 className="text-2xl font-black mb-8 flex items-center gap-3 text-slate-800">
-              <div className="p-3 bg-blue-50 text-blue-600 rounded-2xl">
-                {editingStudentId ? <Edit2 size={24} /> : <UserPlus size={24} />}
-              </div>
-              {editingStudentId ? 'تعديل بيانات التلميذ' : 'تسجيل تلميذ جديد'}
-            </h3>
+            <div className="flex justify-between items-center mb-8">
+               <h3 className="text-2xl font-black flex items-center gap-3 text-slate-800">
+                <div className="p-3 bg-blue-50 text-blue-600 rounded-2xl">
+                  {isBulkMode ? <UsersRound size={24} /> : (editingStudentId ? <Edit2 size={24} /> : <UserPlus size={24} />)}
+                </div>
+                {isBulkMode ? 'إضافة مجموعة تلاميذ دفعة واحدة' : (editingStudentId ? 'تعديل بيانات التلميذ' : 'تسجيل تلميذ جديد')}
+              </h3>
+              {!editingStudentId && (
+                <div className="flex bg-slate-50 p-1.5 rounded-2xl border-2 border-slate-100">
+                  <button 
+                    onClick={() => setIsBulkMode(false)}
+                    className={`px-6 py-2 rounded-xl font-black text-xs transition-all ${!isBulkMode ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-400'}`}
+                  >
+                    إضافة فردية
+                  </button>
+                  <button 
+                    onClick={() => setIsBulkMode(true)}
+                    className={`px-6 py-2 rounded-xl font-black text-xs transition-all ${isBulkMode ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-400'}`}
+                  >
+                    إضافة جماعية
+                  </button>
+                </div>
+              )}
+            </div>
 
-            <div className="space-y-10">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                <div className="lg:col-span-2">
-                  <label className="block text-[10px] font-black text-slate-400 mb-2 mr-2 text-right">اسم التلميذ الرباعي</label>
-                  <input type="text" value={studentForm.name} onChange={e => setStudentForm({...studentForm, name: e.target.value})} className="w-full px-6 py-4 border-2 border-slate-50 rounded-2xl font-bold bg-slate-50/50" placeholder="الاسم الكامل..." />
+            <div className="space-y-8">
+              {/* صف اختيارات الصف والشعبة - مشترك */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 bg-slate-50/50 p-6 rounded-[2rem] border border-slate-100">
+                <div className="lg:col-span-1">
+                  <label className="block text-[10px] font-black text-slate-400 mb-2 mr-2 text-right">الصف الدراسي</label>
+                  <select 
+                    value={studentForm.grade} 
+                    onChange={e => setStudentForm({...studentForm, grade: parseInt(e.target.value), section: ''})} 
+                    className="w-full px-5 py-4 border-2 border-white rounded-2xl font-black bg-white shadow-sm outline-none focus:border-blue-600"
+                  >
+                    {[1,2,3,4,5,6].map(g => <option key={g} value={g}>{GRADE_NAMES[g]}</option>)}
+                  </select>
                 </div>
-                <div>
-                  <label className="block text-[10px] font-black text-slate-400 mb-2 mr-2 text-right">تاريخ الميلاد</label>
-                  <input type="date" value={studentForm.birthDate} onChange={e => setStudentForm({...studentForm, birthDate: e.target.value})} className="w-full px-6 py-4 border-2 border-slate-50 rounded-2xl font-bold bg-slate-50/50" />
+                <div className="lg:col-span-1">
+                  <label className="block text-[10px] font-black text-slate-400 mb-2 mr-2 text-right">الشعبة</label>
+                  <select 
+                    value={studentForm.section} 
+                    onChange={e => setStudentForm({...studentForm, section: e.target.value})} 
+                    className="w-full px-5 py-4 border-2 border-white rounded-2xl font-black bg-white shadow-sm outline-none focus:border-blue-600"
+                  >
+                    <option value="">-- اختر الشعبة --</option>
+                    {(season.sections?.[studentForm.grade || 1] || []).map(s => <option key={s} value={s}>{s}</option>)}
+                  </select>
                 </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div><label className="block text-[10px] font-black text-slate-400 mb-2 mr-2 text-right">الصف</label><select value={studentForm.grade} onChange={e => setStudentForm({...studentForm, grade: parseInt(e.target.value), section: ''})} className="w-full px-4 py-4 border-2 border-slate-50 rounded-2xl font-bold bg-slate-50/50">{[1,2,3,4,5,6].map(g => <option key={g} value={g}>{GRADE_NAMES[g]}</option>)}</select></div>
-                  <div><label className="block text-[10px] font-black text-slate-400 mb-2 mr-2 text-right">الشعبة</label><select value={studentForm.section} onChange={e => setStudentForm({...studentForm, section: e.target.value})} className="w-full px-4 py-4 border-2 border-slate-50 rounded-2xl font-bold bg-slate-50/50"><option value="">--</option>{(season.sections?.[studentForm.grade || 1] || []).map(s => <option key={s} value={s}>{s}</option>)}</select></div>
-                </div>
+                {!isBulkMode && (
+                   <div>
+                    <label className="block text-[10px] font-black text-slate-400 mb-2 mr-2 text-right">تاريخ الميلاد</label>
+                    <input type="date" value={studentForm.birthDate} onChange={e => setStudentForm({...studentForm, birthDate: e.target.value})} className="w-full px-5 py-4 border-2 border-white rounded-2xl font-black bg-white shadow-sm outline-none focus:border-blue-600" />
+                  </div>
+                )}
               </div>
 
-              {/* حقول القيد والسكن وولي الأمر */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 p-8 bg-slate-50 rounded-[2.5rem] border-2 border-white">
-                <div className="space-y-4 lg:col-span-3 grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div>
-                    <label className="block text-[10px] font-black text-slate-400 mb-2 mr-2 text-right">رقم القيد</label>
-                    <div className="relative"><Hash size={14} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-300"/><input type="text" value={studentForm.registerNumber} onChange={e => setStudentForm({...studentForm, registerNumber: e.target.value})} className="w-full pr-10 pl-4 py-3 bg-white border border-slate-100 rounded-xl font-bold" placeholder="0000"/></div>
+              {isBulkMode ? (
+                <div className="animate-in slide-in-bottom">
+                  <div className="flex justify-between items-center mb-3 mr-2">
+                    <label className="block text-sm font-black text-slate-700">قائمة الأسماء (اسم واحد في كل سطر)</label>
+                    <div className="px-4 py-1.5 bg-blue-600 text-white rounded-full text-[10px] font-black shadow-lg">
+                      عدد الأسماء المكتشفة: {bulkNamesCount}
+                    </div>
                   </div>
-                  <div>
-                    <label className="block text-[10px] font-black text-slate-400 mb-2 mr-2 text-right">رقم السجل</label>
-                    <div className="relative"><ClipboardList size={14} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-300"/><input type="text" value={studentForm.recordNumber} onChange={e => setStudentForm({...studentForm, recordNumber: e.target.value})} className="w-full pr-10 pl-4 py-3 bg-white border border-slate-100 rounded-xl font-bold" placeholder="00"/></div>
-                  </div>
-                  <div>
-                    <label className="block text-[10px] font-black text-slate-400 mb-2 mr-2 text-right">رقم الصفحة</label>
-                    <div className="relative"><FileText size={14} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-300"/><input type="text" value={studentForm.pageNumber} onChange={e => setStudentForm({...studentForm, pageNumber: e.target.value})} className="w-full pr-10 pl-4 py-3 bg-white border border-slate-100 rounded-xl font-bold" placeholder="00"/></div>
+                  <textarea 
+                    value={bulkNames} 
+                    onChange={e => setBulkNames(e.target.value)}
+                    rows={12}
+                    className="w-full px-8 py-6 border-2 border-slate-100 rounded-[2.5rem] font-bold bg-slate-50 text-right outline-none focus:border-blue-600 focus:bg-white transition-all shadow-inner text-lg leading-relaxed"
+                    placeholder="الصق الأسماء هنا...&#10;أحمد محمد علي&#10;حسين جاسم كاطع&#10;زيدون إبراهيم خليل"
+                  ></textarea>
+                  <div className="mt-4 p-4 bg-amber-50 rounded-2xl border border-amber-100 flex items-start gap-3 text-amber-800">
+                    <AlertCircle size={18} className="shrink-0 mt-0.5" />
+                    <p className="text-[11px] font-bold">سيتم تعيين تاريخ ميلاد افتراضي للطلاب المضافين جماعياً (بداية السن القانوني للموسم). يمكنك تعديله لاحقاً لكل طالب على حدة.</p>
                   </div>
                 </div>
+              ) : (
+                <div className="space-y-8 animate-in slide-in-bottom">
+                  <div>
+                    <label className="block text-[10px] font-black text-slate-400 mb-2 mr-2 text-right">اسم التلميذ الرباعي</label>
+                    <input type="text" value={studentForm.name} onChange={e => setStudentForm({...studentForm, name: e.target.value})} className="w-full px-6 py-5 border-2 border-slate-50 rounded-[1.5rem] font-black text-xl bg-slate-50/50 outline-none focus:border-blue-600 focus:bg-white" placeholder="الاسم الكامل..." />
+                  </div>
 
-                <div>
-                  <label className="block text-[10px] font-black text-slate-400 mb-2 mr-2 text-right">رقم هاتف ولي الأمر</label>
-                  <div className="relative"><Smartphone size={14} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-300"/><input type="text" value={studentForm.parentPhone} onChange={e => setStudentForm({...studentForm, parentPhone: e.target.value})} className="w-full pr-10 pl-4 py-3 bg-white border border-slate-100 rounded-xl font-bold" placeholder="07XXXXXXXXX"/></div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 p-8 bg-slate-50 rounded-[2.5rem] border-2 border-white">
+                    <div className="space-y-4 lg:col-span-3 grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div>
+                        <label className="block text-[10px] font-black text-slate-400 mb-2 mr-2 text-right">رقم القيد</label>
+                        <div className="relative"><Hash size={14} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-300"/><input type="text" value={studentForm.registerNumber} onChange={e => setStudentForm({...studentForm, registerNumber: e.target.value})} className="w-full pr-10 pl-4 py-3 bg-white border border-slate-100 rounded-xl font-bold" placeholder="0000"/></div>
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-black text-slate-400 mb-2 mr-2 text-right">رقم السجل</label>
+                        <div className="relative"><ClipboardList size={14} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-300"/><input type="text" value={studentForm.recordNumber} onChange={e => setStudentForm({...studentForm, recordNumber: e.target.value})} className="w-full pr-10 pl-4 py-3 bg-white border border-slate-100 rounded-xl font-bold" placeholder="00"/></div>
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-black text-slate-400 mb-2 mr-2 text-right">رقم الصفحة</label>
+                        <div className="relative"><FileText size={14} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-300"/><input type="text" value={studentForm.pageNumber} onChange={e => setStudentForm({...studentForm, pageNumber: e.target.value})} className="w-full pr-10 pl-4 py-3 bg-white border border-slate-100 rounded-xl font-bold" placeholder="00"/></div>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] font-black text-slate-400 mb-2 mr-2 text-right">رقم هاتف ولي الأمر</label>
+                      <div className="relative"><Smartphone size={14} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-300"/><input type="text" value={studentForm.parentPhone} onChange={e => setStudentForm({...studentForm, parentPhone: e.target.value})} className="w-full pr-10 pl-4 py-3 bg-white border border-slate-100 rounded-xl font-bold" placeholder="07XXXXXXXXX"/></div>
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-black text-slate-400 mb-2 mr-2 text-right">العنوان / السكن</label>
+                      <div className="relative"><MapPin size={14} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-300"/><input type="text" value={studentForm.address} onChange={e => setStudentForm({...studentForm, address: e.target.value})} className="w-full pr-10 pl-4 py-3 bg-white border border-slate-100 rounded-xl font-bold" placeholder="الحي / المحلة / الزقاق"/></div>
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-black text-slate-400 mb-2 mr-2 text-right">مهنة ولي الأمر</label>
+                      <div className="relative"><Briefcase size={14} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-300"/><input type="text" value={studentForm.parentJob} onChange={e => setStudentForm({...studentForm, parentJob: e.target.value})} className="w-full pr-10 pl-4 py-3 bg-white border border-slate-100 rounded-xl font-bold" placeholder="كاسب / موظف..."/></div>
+                    </div>
+                  </div>
                 </div>
-                <div>
-                  <label className="block text-[10px] font-black text-slate-400 mb-2 mr-2 text-right">العنوان / السكن</label>
-                  <div className="relative"><MapPin size={14} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-300"/><input type="text" value={studentForm.address} onChange={e => setStudentForm({...studentForm, address: e.target.value})} className="w-full pr-10 pl-4 py-3 bg-white border border-slate-100 rounded-xl font-bold" placeholder="الحي / المحلة / الزقاق"/></div>
-                </div>
-                <div>
-                  <label className="block text-[10px] font-black text-slate-400 mb-2 mr-2 text-right">مهنة ولي الأمر</label>
-                  <div className="relative"><Briefcase size={14} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-300"/><input type="text" value={studentForm.parentJob} onChange={e => setStudentForm({...studentForm, parentJob: e.target.value})} className="w-full pr-10 pl-4 py-3 bg-white border border-slate-100 rounded-xl font-bold" placeholder="كاسب / موظف..."/></div>
-                </div>
-              </div>
+              )}
 
               <div className="flex gap-4">
-                <button onClick={saveStudent} className="flex-1 bg-blue-600 text-white py-5 rounded-[2rem] font-black shadow-xl hover:bg-blue-700 transition-all flex items-center justify-center gap-3"><Plus size={24} /> {editingStudentId ? 'تحديث البيانات' : 'حفظ التلميذ'}</button>
-                {editingStudentId && <button onClick={() => { setEditingStudentId(null); setStudentForm({name: '', grade: 1, section: '', status: 'active'}); }} className="px-10 bg-slate-100 text-slate-500 rounded-[2rem] font-black">إلغاء</button>}
+                <button 
+                  onClick={isBulkMode ? saveBulkStudents : saveStudent} 
+                  className={`flex-1 py-6 rounded-[2rem] font-black shadow-xl transition-all flex items-center justify-center gap-3 ${
+                    isBulkMode ? 'bg-slate-900 text-white hover:bg-black' : 'bg-blue-600 text-white hover:bg-blue-700'
+                  }`}
+                >
+                  {isBulkMode ? <ListPlus size={24} /> : <Plus size={24} />} 
+                  {isBulkMode ? `إضافة الـ (${bulkNamesCount}) تلميذ دفعة واحدة` : (editingStudentId ? 'تحديث البيانات' : 'حفظ التلميذ')}
+                </button>
+                {(editingStudentId || isBulkMode) && (
+                  <button 
+                    onClick={() => { setEditingStudentId(null); setIsBulkMode(false); setBulkNames(''); }} 
+                    className="px-10 bg-slate-100 text-slate-500 rounded-[2rem] font-black"
+                  >
+                    إلغاء
+                  </button>
+                )}
               </div>
             </div>
           </div>

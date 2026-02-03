@@ -1,14 +1,15 @@
 
 import React from 'react';
 import { AppState } from '../types';
-import { Users, GraduationCap, Calendar, BookOpen } from 'lucide-react';
+import { Users, GraduationCap, Calendar, BookOpen, Coffee } from 'lucide-react';
 
 interface Props {
   state: AppState;
   setState: React.Dispatch<React.SetStateAction<AppState>>;
+  onShowDevInfo: () => void;
 }
 
-const Dashboard: React.FC<Props> = ({ state }) => {
+const Dashboard: React.FC<Props> = ({ state, onShowDevInfo }) => {
   const activeSeason = state.seasons.find(s => s.id === state.activeSeasonId);
 
   const stats = [
@@ -19,7 +20,7 @@ const Dashboard: React.FC<Props> = ({ state }) => {
   ];
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-500">
+    <div className="space-y-8 animate-in fade-in duration-500 pb-20">
       {/* Welcome Hero */}
       <div className="relative overflow-hidden bg-gradient-to-r from-blue-600 to-blue-800 rounded-[3rem] p-12 text-white shadow-xl">
         <div className="relative z-10">
@@ -58,6 +59,22 @@ const Dashboard: React.FC<Props> = ({ state }) => {
           </div>
         </div>
       )}
+
+      {/* علامة المطور المائية في شاشة الرئيسية */}
+      <div className="flex justify-center pt-10">
+        <button 
+          onClick={onShowDevInfo}
+          className="group flex items-center gap-3 px-8 py-4 bg-white hover:bg-slate-50 border-2 border-slate-100 rounded-[2rem] transition-all shadow-sm hover:shadow-md"
+        >
+          <div className="p-2.5 bg-amber-50 rounded-xl group-hover:rotate-12 transition-transform">
+            <Coffee size={20} className="text-amber-600" />
+          </div>
+          <div className="text-right">
+             <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">المطور</p>
+             <p className="text-sm font-black text-slate-800">أحمد عامر رضا</p>
+          </div>
+        </button>
+      </div>
     </div>
   );
 };
