@@ -221,23 +221,28 @@ const GradeEntry: React.FC<Props> = ({ season, onUpdate }) => {
                           <td className="px-1 py-2"><input disabled={isDismissed} type="number" value={getGradeValue(student.id, 'october') ?? ''} onChange={e => handleGradeChange(student.id, 'october', e.target.value)} className="w-14 text-center py-2 border rounded-lg font-bold bg-white outline-none focus:border-blue-500" /></td>
                           <td className="px-1 py-2"><input disabled={isDismissed} type="number" value={getGradeValue(student.id, 'november') ?? ''} onChange={e => handleGradeChange(student.id, 'november', e.target.value)} className="w-14 text-center py-2 border rounded-lg font-bold bg-white outline-none focus:border-blue-500" /></td>
                           <td className="px-1 py-2"><input disabled={isDismissed} type="number" value={getGradeValue(student.id, 'december') ?? ''} onChange={e => handleGradeChange(student.id, 'december', e.target.value)} className="w-14 text-center py-2 border rounded-lg font-bold bg-white outline-none focus:border-blue-500" /></td>
-                          <td className="px-1 py-2 text-center font-black text-blue-700 bg-blue-50/30 text-sm">{formatGrade(getGradeValue(student.id, 'firstHalfAvg'))}</td>
+                          {/* Assert the result as number since we are targeting numeric grade fields */}
+                          <td className="px-1 py-2 text-center font-black text-blue-700 bg-blue-50/30 text-sm">{formatGrade(getGradeValue(student.id, 'firstHalfAvg') as number)}</td>
                           <td className="px-1 py-2 bg-amber-50/30"><input disabled={isDismissed} type="number" value={getGradeValue(student.id, 'midYearExam') ?? ''} onChange={e => handleGradeChange(student.id, 'midYearExam', e.target.value)} className="w-14 text-center py-2 border border-amber-300 rounded-lg font-black bg-white outline-none focus:border-amber-500" /></td>
                           <td className="px-1 py-2"><input disabled={isDismissed} type="number" value={getGradeValue(student.id, 'february') ?? ''} onChange={e => handleGradeChange(student.id, 'february', e.target.value)} className="w-14 text-center py-2 border rounded-lg font-bold bg-white outline-none focus:border-blue-500" /></td>
                           <td className="px-1 py-2"><input disabled={isDismissed} type="number" value={getGradeValue(student.id, 'march') ?? ''} onChange={e => handleGradeChange(student.id, 'march', e.target.value)} className="w-14 text-center py-2 border rounded-lg font-bold bg-white outline-none focus:border-blue-500" /></td>
                           <td className="px-1 py-2"><input disabled={isDismissed} type="number" value={getGradeValue(student.id, 'april') ?? ''} onChange={e => handleGradeChange(student.id, 'april', e.target.value)} className="w-14 text-center py-2 border rounded-lg font-bold bg-white outline-none focus:border-blue-500" /></td>
-                          <td className="px-1 py-2 text-center font-black text-emerald-700 bg-emerald-50/30 text-sm">{formatGrade(getGradeValue(student.id, 'secondHalfAvg'))}</td>
-                          <td className="px-1 py-2 text-center font-black text-purple-700 bg-purple-50/30 text-sm">{formatGrade(getGradeValue(student.id, 'annualEffort'))}</td>
+                          {/* Assert the result as number since we are targeting numeric grade fields */}
+                          <td className="px-1 py-2 text-center font-black text-emerald-700 bg-emerald-50/30 text-sm">{formatGrade(getGradeValue(student.id, 'secondHalfAvg') as number)}</td>
+                          {/* Assert the result as number since we are targeting numeric grade fields */}
+                          <td className="px-1 py-2 text-center font-black text-purple-700 bg-purple-50/30 text-sm">{formatGrade(getGradeValue(student.id, 'annualEffort') as number)}</td>
                           <td className="px-1 py-2 bg-red-50/30"><input disabled={isDismissed} type="number" value={getGradeValue(student.id, 'finalExam') ?? ''} onChange={e => handleGradeChange(student.id, 'finalExam', e.target.value)} className="w-14 text-center py-2 border border-red-300 rounded-lg font-black bg-white outline-none focus:border-red-500" /></td>
-                          <td className="px-1 py-2 text-center font-black text-indigo-700 bg-indigo-50 text-sm">{formatGrade(getGradeValue(student.id, 'finalGrade'))}</td>
+                          {/* Assert the result as number since we are targeting numeric grade fields */}
+                          <td className="px-1 py-2 text-center font-black text-indigo-700 bg-indigo-50 text-sm">{formatGrade(getGradeValue(student.id, 'finalGrade') as number)}</td>
                           <td className="px-1 py-2 bg-orange-100/40"><input disabled={isDismissed} type="number" value={getGradeValue(student.id, 'secondRound') ?? ''} onChange={e => handleGradeChange(student.id, 'secondRound', e.target.value)} className="w-16 text-center py-3 border-2 border-orange-300 rounded-xl font-black bg-white outline-none focus:border-orange-600 shadow-sm" /></td>
                         </>
                       )}
 
+                      {/* Cast finalResult to number for safe comparison and formatting */}
                       <td className={`px-6 py-4 text-center font-black text-base ${
-                        isDismissed ? 'bg-red-900 text-white' : (finalResult ?? 0) >= (isPrimary ? 5 : 50) ? 'bg-emerald-600 text-white' : (finalResult === undefined ? 'bg-slate-100 text-slate-400' : 'bg-red-600 text-white')
+                        isDismissed ? 'bg-red-900 text-white' : ((finalResult as number) ?? 0) >= (isPrimary ? 5 : 50) ? 'bg-emerald-600 text-white' : (finalResult === undefined ? 'bg-slate-100 text-slate-400' : 'bg-red-600 text-white')
                       }`}>
-                        {isDismissed ? "مفصول" : formatGrade(finalResult)}
+                        {isDismissed ? "مفصول" : formatGrade(finalResult as number)}
                       </td>
                     </tr>
                   );

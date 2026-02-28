@@ -5,7 +5,7 @@ import {
   Calendar, Menu, X, Trash2, Settings, History, School, Cloud, 
   Globe, HardDrive, FileJson, FileUp, RefreshCw,
   MessageCircle, Send, Instagram, Coffee, Download, ArrowUpCircle, 
-  Medal, CalendarCheck, Gavel
+  Medal, CalendarCheck, Gavel, FileText
 } from 'lucide-react';
 import { Season, AppState, ThemeType, DEFAULT_THEMES, GoogleDriveConfig } from './types';
 import Dashboard from './components/Dashboard';
@@ -14,6 +14,7 @@ import PeopleManager from './components/PeopleManager';
 import SubjectsManager from './components/SubjectsManager';
 import GradeEntry from './components/GradeEntry';
 import StudentReport from './components/StudentReport';
+import CertificatesCenter from './components/CertificatesCenter';
 import StatsView from './components/StatsView';
 import DeleteCenter from './components/DeleteCenter';
 import HonorBoard from './components/HonorBoard';
@@ -90,6 +91,7 @@ const App: React.FC = () => {
     { id: 'grades', label: 'رصد الدرجات', icon: GraduationCap, disabled: !activeSeason },
     { id: 'decision', label: 'نظام القرار', icon: Gavel, disabled: !activeSeason },
     { id: 'honor', label: 'لوحة الشرف', icon: Medal, disabled: !activeSeason },
+    { id: 'certificates', label: 'الشهادات', icon: FileText, disabled: !activeSeason },
     { id: 'reports', label: 'سجل الطالب', icon: GraduationCap, disabled: !activeSeason },
     { id: 'stats', label: 'الإحصائيات', icon: BarChart3, disabled: !activeSeason },
     { id: 'promotion', label: 'الترحيل', icon: ArrowUpCircle, disabled: !activeSeason },
@@ -294,6 +296,7 @@ const App: React.FC = () => {
               {activeTab === 'attendance' && <AttendanceManager season={activeSeason} onUpdate={updateActiveSeason} />}
               {activeTab === 'grades' && <GradeEntry season={activeSeason} onUpdate={updateActiveSeason} />}
               {activeTab === 'honor' && <HonorBoard season={activeSeason} schoolName={state.schoolName} />}
+              {activeTab === 'certificates' && <CertificatesCenter season={activeSeason} schoolName={state.schoolName} />}
               {activeTab === 'reports' && <StudentReport season={activeSeason} schoolName={state.schoolName} />}
               {activeTab === 'stats' && <StatsView season={activeSeason} />}
               {activeTab === 'promotion' && <PromotionManager season={activeSeason} onUpdate={updateActiveSeason} state={state} setState={setState} />}
@@ -429,7 +432,7 @@ const App: React.FC = () => {
 
             <div className="p-10 space-y-6">
                <p className="text-center font-black text-slate-500 text-sm mb-8 leading-relaxed">
-                 تم تطوير هذا النظام بأحدث التقنيات لضمان أفضل تجربة لإدارة مدرسة الأديب. يسعدني تواصلكم معي.
+                 تم تطوير هذا النظام بأحدث التقنيات لضمان أفضل تجربة يسعدني تواصلكم معي.
                </p>
 
                <div className="space-y-3">

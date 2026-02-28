@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { AppState } from '../types';
-import { Users, GraduationCap, Calendar, BookOpen, Coffee } from 'lucide-react';
+import { Users, GraduationCap, Calendar, BookOpen, Coffee, Layers, CalendarX, UserCheck, UserX } from 'lucide-react';
 
 interface Props {
   state: AppState;
@@ -12,15 +12,22 @@ interface Props {
 const Dashboard: React.FC<Props> = ({ state, onShowDevInfo }) => {
   const activeSeason = state.seasons.find(s => s.id === state.activeSeasonId);
 
-  const stats = [
+  const statsRow1 = [
     { label: 'المواسم الدراسية', value: state.seasons.length, icon: Calendar, color: 'text-blue-600', bg: 'bg-blue-50' },
     { label: 'الطلاب المسجلين', value: activeSeason?.students.length || 0, icon: Users, color: 'text-emerald-600', bg: 'bg-emerald-50' },
     { label: 'المعلمون', value: activeSeason?.teachers.length || 0, icon: GraduationCap, color: 'text-purple-600', bg: 'bg-purple-50' },
     { label: 'المواد الدراسية', value: activeSeason ? Object.values(activeSeason.subjects).flat().length : 0, icon: BookOpen, color: 'text-amber-600', bg: 'bg-amber-50' },
   ];
 
+  const statsRow2 = [
+    { label: 'إجمالي الشعب', value: activeSeason ? Object.values(activeSeason.sections).flat().length : 0, icon: Layers, color: 'text-indigo-600', bg: 'bg-indigo-50' },
+    { label: 'إجمالي الغيابات', value: activeSeason?.attendance.filter(a => a.type === 'absent').length || 0, icon: CalendarX, color: 'text-red-600', bg: 'bg-red-50' },
+    { label: 'الطلاب المستمرين', value: activeSeason?.students.filter(s => s.status !== 'dismissed').length || 0, icon: UserCheck, color: 'text-cyan-600', bg: 'bg-cyan-50' },
+    { label: 'الطلاب المفصولين', value: activeSeason?.students.filter(s => s.status === 'dismissed').length || 0, icon: UserX, color: 'text-slate-600', bg: 'bg-slate-50' },
+  ];
+
   return (
-    <div className="space-y-8 animate-in fade-in duration-500 pb-20">
+    <div className="space-y-8 animate-in fade-in duration-500 pb-20 relative min-h-full">
       {/* Welcome Hero */}
       <div className="relative overflow-hidden bg-gradient-to-r from-blue-600 to-blue-800 rounded-[3rem] p-12 text-white shadow-xl">
         <div className="relative z-10">
@@ -33,9 +40,24 @@ const Dashboard: React.FC<Props> = ({ state, onShowDevInfo }) => {
         <div className="absolute bottom-0 left-0 w-64 h-64 bg-blue-400/20 rounded-full -ml-32 -mb-32 blur-3xl"></div>
       </div>
 
-      {/* Quick Stats */}
+      {/* Quick Stats - Row 1 */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {stats.map((stat, i) => (
+        {statsRow1.map((stat, i) => (
+          <div key={i} className="bg-white p-6 rounded-[2.5rem] shadow-sm border border-gray-100 flex items-center gap-5 transition-all hover:scale-105 hover:shadow-lg group">
+            <div className={`${stat.bg} w-16 h-16 rounded-2xl flex items-center justify-center transition-transform group-hover:rotate-12`}>
+              <stat.icon className={stat.color} size={32} />
+            </div>
+            <div>
+              <p className="text-xs text-gray-400 font-black mb-1">{stat.label}</p>
+              <p className="text-3xl font-black text-slate-800">{stat.value}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Quick Stats - Row 2 (تم ملء المساحات المحددة بالصور) */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        {statsRow2.map((stat, i) => (
           <div key={i} className="bg-white p-6 rounded-[2.5rem] shadow-sm border border-gray-100 flex items-center gap-5 transition-all hover:scale-105 hover:shadow-lg group">
             <div className={`${stat.bg} w-16 h-16 rounded-2xl flex items-center justify-center transition-transform group-hover:rotate-12`}>
               <stat.icon className={stat.color} size={32} />
@@ -60,18 +82,18 @@ const Dashboard: React.FC<Props> = ({ state, onShowDevInfo }) => {
         </div>
       )}
 
-      {/* علامة المطور المائية في شاشة الرئيسية */}
-      <div className="flex justify-center pt-10">
+      {/* علامة المطور المائية - تم جعلها ثابتة في الركن الأيسر السفلي لتكون ظاهرة دائماً */}
+      <div className="fixed bottom-6 left-6 z-[60] no-print">
         <button 
           onClick={onShowDevInfo}
-          className="group flex items-center gap-3 px-8 py-4 bg-white hover:bg-slate-50 border-2 border-slate-100 rounded-[2rem] transition-all shadow-sm hover:shadow-md"
+          className="group flex items-center gap-3 px-6 py-3 bg-white hover:bg-slate-50 border-2 border-slate-100 rounded-[2rem] transition-all shadow-xl hover:shadow-2xl hover:-translate-y-1"
         >
-          <div className="p-2.5 bg-amber-50 rounded-xl group-hover:rotate-12 transition-transform">
-            <Coffee size={20} className="text-amber-600" />
+          <div className="p-2 bg-amber-50 rounded-xl group-hover:rotate-12 transition-transform">
+            <Coffee size={18} className="text-amber-600" />
           </div>
           <div className="text-right">
-             <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">المطور</p>
-             <p className="text-sm font-black text-slate-800">أحمد عامر رضا</p>
+             <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">المطور</p>
+             <p className="text-xs font-black text-slate-800">أحمد عامر رضا</p>
           </div>
         </button>
       </div>

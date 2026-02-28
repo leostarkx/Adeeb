@@ -1,0 +1,21 @@
+{
+  "name": "نظام مدرسة الأديب",
+  "short_name": "الأديب",
+  "description": "نظام إدارة درجات مدرسة الأديب الابتدائية",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f8fafc",
+  "theme_color": "#2563eb",
+  "icons": [
+    {
+      "src": "https://image2url.com/r2/default/images/1769798562819-9854cd28-07cb-4eeb-b7b3-462e57a0bb4e.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "https://image2url.com/r2/default/images/1769798562819-9854cd28-07cb-4eeb-b7b3-462e57a0bb4e.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

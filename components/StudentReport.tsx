@@ -180,19 +180,21 @@ const StudentReport: React.FC<Props> = ({ season, schoolName }) => {
             </tbody>
           </table>
 
-          <div className="mt-6 flex justify-between text-[11px] font-black items-end text-slate-900 min-w-[800px]">
+          <div className="mt-8 flex justify-between text-[11px] font-black items-start text-slate-900 min-w-[800px] px-4 pb-12">
             <div className="space-y-1">
               <p>المشتركون: ({stats.total}) | الناجحون: ({stats.passed}) | المكملون: ({stats.makeup}) | الراسبون: ({stats.failed}) | بقرار: ({stats.dec})</p>
               <p>النسبة الكلية: ({stats.total > 0 ? Math.round((stats.passed/stats.total)*100) : 0}%)</p>
             </div>
-            <div className="flex gap-20 pl-10">
-               <div className="text-center">
-                 <p className="mb-10">مرشد الصف</p>
+            <div className="flex gap-24">
+               <div className="text-right">
+                 <p className="mb-1">مرشد الصف</p>
                  <p className="font-black text-[10px]">{getAdvisorName(selectedGrade, selectedSection)}</p>
+                 <div className="h-12"></div>
                </div>
-               <div className="text-center">
-                 <p className="mb-10">مدير المؤسسة</p>
+               <div className="text-right">
+                 <p className="mb-1">مدير المدرسة</p>
                  <p className="font-black text-sm">{season.managerName || '........................'}</p>
+                 <div className="h-12"></div>
                </div>
             </div>
           </div>
@@ -312,13 +314,15 @@ const StudentReport: React.FC<Props> = ({ season, schoolName }) => {
            </div>
 
            <div className="mt-16 flex justify-around items-end text-slate-900 pb-10">
-            <div className="text-center font-black">
-              <p className="mb-12 underline decoration-dotted text-xs">مرشد الصف</p>
+            <div className="text-right font-black">
+              <p className="mb-1 underline decoration-dotted text-xs">مرشد الصف</p>
               <p className="text-lg">{getAdvisorName(student.grade, student.section)}</p>
+              <div className="h-12"></div>
             </div>
-            <div className="text-center font-black">
-              <p className="mb-12 underline decoration-dotted text-xs">مدير المؤسسة</p>
+            <div className="text-right font-black">
+              <p className="mb-1 underline decoration-dotted text-xs">مدير المدرسة</p>
               <p className="text-xl">{season.managerName || '........................'}</p>
+              <div className="h-12"></div>
             </div>
           </div>
         </div>
@@ -360,9 +364,9 @@ const StudentReport: React.FC<Props> = ({ season, schoolName }) => {
                </div>
                <div className="text-right space-y-1">
                   <p>الاسم: <span className="text-sm underline px-2">{student.name}</span></p>
-                  <p>رقم القبول: <span className="underline px-2">{student.registerNumber || '........'}</span></p>
+                  <p>الشعبة: <span className="underline px-2">{student.section || '........'}</span></p>
                   <p>التسلسل: <span className="underline px-2">........</span></p>
-                  <p>الصف: <span className="underline px-2">{GRADE_NAMES[student.grade]} ( {student.section} )</span></p>
+                  <p>الصف: <span className="underline px-2">{GRADE_NAMES[student.grade]}</span></p>
                </div>
             </div>
 
@@ -435,14 +439,10 @@ const StudentReport: React.FC<Props> = ({ season, schoolName }) => {
               </tbody>
             </table>
 
-            <div className="flex justify-between items-end mt-12 text-slate-900 px-4 pb-12">
-               <div className="text-center font-black">
-                  <p className="mb-14">المدير</p>
-                  <p className="text-lg underline underline-offset-8 decoration-2">{season.managerName || '........................'}</p>
-               </div>
-               <div className="text-center font-black opacity-30">
-                  <p className="text-[10px]">ختم المدرسة</p>
-                  <div className="w-24 h-24 border-4 border-slate-900 rounded-full mt-2 flex items-center justify-center italic text-xs">شعار المؤسسة</div>
+            <div className="flex justify-start mt-12 text-slate-900 px-12 pb-32">
+               <div className="text-right font-black">
+                  <p className="text-base mb-1">مدير المدرسة</p>
+                  <p className="text-lg mb-12">{season.managerName || '........................'}</p>
                </div>
             </div>
           </div>
@@ -550,13 +550,15 @@ const StudentReport: React.FC<Props> = ({ season, schoolName }) => {
           )}
 
           <div className="mt-16 flex justify-around items-end text-slate-900 pb-10">
-            <div className="text-center font-black">
-              <p className="mb-12 underline decoration-dotted text-xs">مرشد الصف</p>
+            <div className="text-right font-black">
+              <p className="mb-1 underline decoration-dotted text-xs">مرشد الصف</p>
               <p className="text-lg">{getAdvisorName(student.grade, student.section)}</p>
+              <div className="h-12"></div>
             </div>
-            <div className="text-center font-black">
-              <p className="mb-12 underline decoration-dotted text-xs">مدير المؤسسة</p>
+            <div className="text-right font-black">
+              <p className="mb-1 underline decoration-dotted text-xs">مدير المدرسة</p>
               <p className="text-xl">{season.managerName || '........................'}</p>
+              <div className="h-12"></div>
             </div>
           </div>
         </div>
