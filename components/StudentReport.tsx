@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo } from 'react';
-import { Season, Student, GRADE_NAMES, Subject, GradeRecord, AttendanceRecord } from '../types';
-import { formatGrade, numberToArabicWords, getPrimaryResult } from '../utils/calculations';
+import { Season, Student, GRADE_NAMES, Subject, GradeRecord, AttendanceRecord, User as AppUser } from '../types';
+import { formatGrade, numberToArabicWords, getPrimaryResult, toArabicNums } from '../utils/calculations';
 import { 
   Printer, ArrowRight, Search, LayoutGrid, User, ChevronRight, 
   CalendarDays, Medal, UserX, CalendarX, FileText, UserCheck, 
@@ -11,24 +11,47 @@ import {
 interface Props {
   season: Season;
   schoolName: string;
+  currentUser: AppUser;
 }
 
-const StudentReport: React.FC<Props> = ({ season, schoolName }) => {
-  const [reportType, setReportType] = useState<'individual' | 'class' | 'absences'>('individual');
+const StudentReport: React.FC<Props> = ({ season, schoolName, currentUser }) => {
+  const isStudent = currentUser.role === 'student';
+  const isTeacher = currentUser.role === 'teacher';
+  const teacherId = currentUser.linkedId;
+
+  const teacherAssignments = useMemo(() => {
+    if (!isTeacher || !teacherId) return [];
+    const teacher = (season.teachers || []).find(t => t.id === teacherId);
+    return teacher?.assignments || [];
+  }, [isTeacher, teacherId, season.teachers]);
+
+  const [reportType, setReportType] = useState<'individual' | 'class' | 'absences'>(isStudent ? 'individual' : 'individual');
   const [reportPeriod, setReportPeriod] = useState<'midyear' | 'final'>('midyear');
-  const [selectedGrade, setSelectedGrade] = useState<number>(1);
-  const [selectedSection, setSelectedSection] = useState<string>('');
+  const [selectedGrade, setSelectedGrade] = useState<number>(() => {
+    if (isTeacher && teacherAssignments.length > 0) return teacherAssignments[0].gradeId;
+    return 1;
+  });
+  const [selectedSection, setSelectedSection] = useState<string>(() => {
+    if (isTeacher && teacherAssignments.length > 0) return teacherAssignments[0].sectionName;
+    return '';
+  });
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
+  const [selectedStudentId, setSelectedStudentId] = useState<string | null>(isStudent ? currentUser.linkedId || null : null);
   const [isViewingClassReport, setIsViewingClassReport] = useState(false);
   
   const searchResults = useMemo(() => {
     if (searchTerm.length < 1) return [];
-    return (season.students || []).filter(s => 
+    let list = (season.students || []);
+    if (isTeacher) {
+      const assignedGrades = teacherAssignments.map(a => a.gradeId);
+      const assignedSections = teacherAssignments.map(a => a.sectionName);
+      list = list.filter(s => assignedGrades.includes(s.grade) && assignedSections.includes(s.section));
+    }
+    return list.filter(s => 
       s.name.includes(searchTerm) || 
       s.registerNumber?.includes(searchTerm)
     );
-  }, [season.students, searchTerm]);
+  }, [season.students, searchTerm, isTeacher, teacherAssignments]);
 
   const student = useMemo(() => 
     (season.students || []).find(s => s.id === selectedStudentId),
@@ -65,7 +88,7 @@ const StudentReport: React.FC<Props> = ({ season, schoolName }) => {
 
   const getAdvisorName = (grade: number, section: string) => {
     const teacherId = season.sectionAdvisors?.[grade]?.[section];
-    return season.teachers.find(t => t.id === teacherId)?.name || '........................';
+    return (season.teachers || []).find(t => t.id === teacherId)?.name || '........................';
   };
 
   const getArabicDayName = (dateStr: string) => {
@@ -99,7 +122,7 @@ const StudentReport: React.FC<Props> = ({ season, schoolName }) => {
              <div className="text-center">
                 <p className="text-lg">سجل درجات {isPrimary ? 'الصفوف الأولية' : 'الصفوف العليا'} المجمع</p>
                 <p className="">({reportPeriod === 'midyear' ? 'نتائج نصف السنة' : 'النتائج النهائية'})</p>
-                <p className="mt-1">العام الدراسي {season.name}</p>
+                <p className="mt-1">العام الدراسي {toArabicNums(season.name)}</p>
              </div>
              <div className="text-right space-y-1">
                 <p>الصف: {GRADE_NAMES[selectedGrade]}</p>
@@ -127,7 +150,7 @@ const StudentReport: React.FC<Props> = ({ season, schoolName }) => {
                   stats.dismissed++;
                   return (
                     <tr key={s.id} className="h-8 bg-red-50">
-                      <td className="border border-black">{idx + 1}</td>
+                      <td className="border border-black">{toArabicNums(idx + 1)}</td>
                       <td className="border border-black text-right pr-2 text-red-700 line-through text-[9px]">{s.name} (مفصول)</td>
                       {subjects.map(sub => <td key={sub.id} className="border border-black">--</td>)}
                       <td className="border border-black">--</td>
@@ -156,7 +179,7 @@ const StudentReport: React.FC<Props> = ({ season, schoolName }) => {
 
                 return (
                   <tr key={s.id} className="h-10 hover:bg-slate-50">
-                    <td className="border border-black">{idx + 1}</td>
+                    <td className="border border-black">{toArabicNums(idx + 1)}</td>
                     <td className="border border-black text-right pr-2 text-[10px] whitespace-nowrap">{s.name}</td>
                     {subjects.map(sub => {
                       const gr = studentGrades.find(g => g.subjectId === sub.id);
@@ -169,7 +192,7 @@ const StudentReport: React.FC<Props> = ({ season, schoolName }) => {
                         </td>
                       );
                     })}
-                    <td className="border border-black text-blue-800">{total > 0 ? Math.round(total) : ''}</td>
+                    <td className="border border-black text-blue-800">{total > 0 ? toArabicNums(Math.round(total)) : ''}</td>
                     <td className="border border-black text-[7px] text-right pr-1 leading-none">{total > 0 ? numberToArabicWords(Math.round(total)) : ''}</td>
                     <td className={`border border-black text-[9px] ${result.status === 'ناجح' ? 'text-emerald-700' : 'text-red-600'}`}>
                       {hasDecision && result.status === 'ناجح' ? 'ناجح بقرار' : result.status}
@@ -182,8 +205,8 @@ const StudentReport: React.FC<Props> = ({ season, schoolName }) => {
 
           <div className="mt-8 flex justify-between text-[11px] font-black items-start text-slate-900 min-w-[800px] px-4 pb-12">
             <div className="space-y-1">
-              <p>المشتركون: ({stats.total}) | الناجحون: ({stats.passed}) | المكملون: ({stats.makeup}) | الراسبون: ({stats.failed}) | بقرار: ({stats.dec})</p>
-              <p>النسبة الكلية: ({stats.total > 0 ? Math.round((stats.passed/stats.total)*100) : 0}%)</p>
+              <p>المشتركون: ({toArabicNums(stats.total)}) | الناجحون: ({toArabicNums(stats.passed)}) | المكملون: ({toArabicNums(stats.makeup)}) | الراسبون: ({toArabicNums(stats.failed)}) | بقرار: ({toArabicNums(stats.dec)})</p>
+              <p>النسبة الكلية: ({toArabicNums(stats.total > 0 ? Math.round((stats.passed/stats.total)*100) : 0)}%)</p>
             </div>
             <div className="flex gap-24">
                <div className="text-right">
@@ -204,16 +227,18 @@ const StudentReport: React.FC<Props> = ({ season, schoolName }) => {
     );
   }
 
-  if (reportType === 'absences' && selectedStudentId && student) {
+  if (selectedStudentId && student && reportType === 'absences') {
     const absents = studentAttendanceRecords.filter(a => a.type === 'absent');
     const excused = studentAttendanceRecords.filter(a => a.type === 'excused');
 
     return (
       <div className="space-y-6 animate-in fade-in pb-20">
         <div className="flex justify-between items-center bg-white p-5 rounded-3xl shadow-sm border border-gray-100 no-print">
-          <button onClick={() => setSelectedStudentId(null)} className="flex items-center gap-2 text-slate-600 font-black px-6 py-2 bg-slate-50 rounded-xl hover:bg-blue-100 transition-colors">
-            <ArrowRight size={20} /> العودة للبحث
-          </button>
+          {!isStudent && (
+            <button onClick={() => setSelectedStudentId(null)} className="flex items-center gap-2 text-slate-600 font-black px-6 py-2 bg-slate-50 rounded-xl hover:bg-blue-100 transition-colors">
+              <ArrowRight size={20} /> العودة للبحث
+            </button>
+          )}
           <button onClick={handlePrint} className="bg-red-600 text-white px-8 py-3 rounded-2xl font-black shadow-lg flex items-center gap-2">
             <Printer size={20} /> طباعة سجل الغياب
           </button>
@@ -231,11 +256,11 @@ const StudentReport: React.FC<Props> = ({ season, schoolName }) => {
                   <CalendarX size={40} className="text-red-600" />
                 </div>
                 <h1 className="text-2xl font-black text-slate-800">كشف غيابات الطالب الرسمي</h1>
-                <p className="text-sm font-bold text-slate-400 mt-1">الموسم الدراسي: {season.name}</p>
+                <p className="text-sm font-bold text-slate-400 mt-1">الموسم الدراسي: {toArabicNums(season.name)}</p>
              </div>
              <div className="text-left font-black text-xs text-slate-900">
                 <p>تاريخ الاستخراج</p>
-                <p>{new Date().toLocaleDateString('ar-IQ')}</p>
+                <p>{toArabicNums(new Date().toLocaleDateString('ar-IQ'))}</p>
              </div>
            </div>
 
@@ -262,14 +287,14 @@ const StudentReport: React.FC<Props> = ({ season, schoolName }) => {
                   <div className="p-3 bg-red-100 text-red-600 rounded-2xl"><UserX size={24} /></div>
                   <p className="font-black text-slate-700">مجموع أيام الغياب</p>
                 </div>
-                <p className="text-3xl font-black text-red-600">{absents.length}</p>
+                <p className="text-3xl font-black text-red-600">{toArabicNums(absents.length)}</p>
               </div>
               <div className="bg-white border-2 border-amber-100 p-6 rounded-3xl flex items-center justify-between">
                 <div className="flex items-center gap-4">
                   <div className="p-3 bg-amber-100 text-amber-600 rounded-2xl"><Clock size={24} /></div>
                   <p className="font-black text-slate-700">مجموع الإجازات</p>
                 </div>
-                <p className="text-3xl font-black text-amber-600">{excused.length}</p>
+                <p className="text-3xl font-black text-amber-600">{toArabicNums(excused.length)}</p>
               </div>
            </div>
 
@@ -343,9 +368,11 @@ const StudentReport: React.FC<Props> = ({ season, schoolName }) => {
       return (
         <div className="space-y-6 animate-in fade-in pb-20 no-print-bg">
           <div className="flex justify-between items-center bg-white p-5 rounded-3xl shadow-sm border border-gray-100 no-print">
-            <button onClick={() => setSelectedStudentId(null)} className="flex items-center gap-2 text-blue-600 font-black px-6 py-2 bg-blue-50 rounded-xl hover:bg-blue-100 transition-colors">
-              <ArrowRight size={20} /> العودة للبحث
-            </button>
+            {!isStudent && (
+              <button onClick={() => setSelectedStudentId(null)} className="flex items-center gap-2 text-blue-600 font-black px-6 py-2 bg-blue-50 rounded-xl hover:bg-blue-100 transition-colors">
+                <ArrowRight size={20} /> العودة للبحث
+              </button>
+            )}
             <button onClick={handlePrint} className="bg-emerald-600 text-white px-8 py-3 rounded-2xl font-black shadow-lg flex items-center gap-2">
               <Printer size={20} /> طباعة سجل الدرجات
             </button>
@@ -360,7 +387,7 @@ const StudentReport: React.FC<Props> = ({ season, schoolName }) => {
                <div className="text-center">
                   <p className="text-xl font-black mb-2">سجل درجات الدروس للصف {GRADE_NAMES[student.grade]}</p>
                   <p className="text-lg">المرحلة الابتدائية</p>
-                  <p className="mt-1">للسنة الدراسية {season.name}</p>
+                  <p className="mt-1">للسنة الدراسية {toArabicNums(season.name)}</p>
                </div>
                <div className="text-right space-y-1">
                   <p>الاسم: <span className="text-sm underline px-2">{student.name}</span></p>
@@ -433,7 +460,7 @@ const StudentReport: React.FC<Props> = ({ season, schoolName }) => {
                 <tr className="h-10 font-black">
                   <td className="border-2 border-slate-900 pr-3 text-right">الدوام</td>
                   <td colSpan={14} className="border-2 border-slate-900 text-right pr-6">
-                    غاب التلميذ ( <span className="text-red-600 px-2">{totalAbsents}</span> ) يوماً خلال السنة الدراسية.
+                    غاب التلميذ ( <span className="text-red-600 px-2">{toArabicNums(totalAbsents)}</span> ) يوماً خلال السنة الدراسية.
                   </td>
                 </tr>
               </tbody>
@@ -461,9 +488,11 @@ const StudentReport: React.FC<Props> = ({ season, schoolName }) => {
     return (
       <div className="space-y-6 animate-in fade-in pb-20">
         <div className="flex justify-between items-center bg-white p-5 rounded-3xl shadow-sm border border-gray-100 no-print">
-          <button onClick={() => setSelectedStudentId(null)} className="flex items-center gap-2 text-blue-600 font-black px-6 py-2 bg-blue-50 rounded-xl hover:bg-blue-100 transition-colors">
-            <ArrowRight size={20} /> العودة للبحث
-          </button>
+          {!isStudent && (
+            <button onClick={() => setSelectedStudentId(null)} className="flex items-center gap-2 text-blue-600 font-black px-6 py-2 bg-blue-50 rounded-xl hover:bg-blue-100 transition-colors">
+              <ArrowRight size={20} /> العودة للبحث
+            </button>
+          )}
           <button onClick={handlePrint} className="bg-emerald-600 text-white px-8 py-3 rounded-2xl font-black shadow-lg flex items-center gap-2 hover:scale-105 transition-transform">
             <Printer size={20} /> طباعة الشهادة
           </button>
@@ -483,7 +512,7 @@ const StudentReport: React.FC<Props> = ({ season, schoolName }) => {
                </div>
                <div className="text-left font-black text-xs leading-relaxed">
                  <p>السنة الدراسية</p>
-                 <p>{season.name}</p>
+                 <p>{toArabicNums(season.name)}</p>
                  <p>الدور الأول</p>
                </div>
              </div>
@@ -491,7 +520,7 @@ const StudentReport: React.FC<Props> = ({ season, schoolName }) => {
              <div className={`bg-slate-50 p-6 rounded-3xl border-2 border-slate-100 grid grid-cols-2 md:grid-cols-4 gap-4 text-right mb-8 ${isDismissed ? 'bg-red-50 border-red-100' : ''}`}>
                <div><span className="text-slate-400 font-bold block text-[10px] mb-1">اسم التلميذ</span> <span className={`font-black text-lg ${isDismissed ? 'text-red-700' : 'text-blue-700'}`}>{student.name}</span></div>
                <div><span className="text-slate-400 font-bold block text-[10px] mb-1">الصف</span> <span className="font-black text-lg text-slate-800">{GRADE_NAMES[student.grade]} ({student.section})</span></div>
-               <div><span className="text-slate-400 font-bold block text-[10px] mb-1">رقم القيد</span> <span className="font-black text-lg text-slate-800">{student.registerNumber || '---'}</span></div>
+               <div><span className="text-slate-400 font-bold block text-[10px] mb-1">رقم القيد</span> <span className="font-black text-lg text-slate-800">{toArabicNums(student.registerNumber) || '---'}</span></div>
                <div><span className="text-slate-400 font-bold block text-[10px] mb-1">الحالة النهائية</span> <span className={`font-black text-lg ${isDismissed ? 'text-red-600' : result.status === 'ناجح' ? 'text-emerald-600' : 'text-red-600'}`}>{isDismissed ? "مفصول غيابات" : (hasDecision && result.status === 'ناجح' ? 'ناجح بقرار' : result.status)}</span></div>
              </div>
           </div>
@@ -532,8 +561,8 @@ const StudentReport: React.FC<Props> = ({ season, schoolName }) => {
                   })}
                   <tr className="bg-slate-100 h-14">
                     <td className="border-2 border-slate-800 p-2 text-right pr-6 font-black">المجموع الكلي</td>
-                    <td className="border-2 border-slate-800 p-2">{Math.round(totalMidYear) || '-'}</td>
-                    <td className="border-2 border-slate-800 p-2 text-blue-900">{Math.round(totalFinal) || '-'}</td>
+                    <td className="border-2 border-slate-800 p-2">{toArabicNums(Math.round(totalMidYear)) || '-'}</td>
+                    <td className="border-2 border-slate-800 p-2 text-blue-900">{toArabicNums(Math.round(totalFinal)) || '-'}</td>
                     <td className="border-2 border-slate-800 p-2">---</td>
                   </tr>
                 </tbody>
@@ -542,7 +571,7 @@ const StudentReport: React.FC<Props> = ({ season, schoolName }) => {
               <div className="mt-8 p-6 border-2 border-slate-800 rounded-2xl bg-slate-50/30">
                 <p className="text-sm font-black underline mb-2">القرار النهائي:</p>
                 <p className="font-bold text-slate-800 text-lg leading-relaxed">
-                  بناءً على النتائج المذكورة أعلاه، يعتبر التلميذ <span className={result.status === 'ناجح' ? 'text-emerald-700' : 'text-red-600'}>{hasDecision && result.status === 'ناجح' ? 'ناجح بقرار' : result.status}</span> للسنة الدراسية {season.name}.
+                  بناءً على النتائج المذكورة أعلاه، يعتبر التلميذ <span className={result.status === 'ناجح' ? 'text-emerald-700' : 'text-red-600'}>{hasDecision && result.status === 'ناجح' ? 'ناجح بقرار' : result.status}</span> للسنة الدراسية {toArabicNums(season.name)}.
                 </p>
                 {hasDecision && <p className="text-xs font-black text-blue-600 mt-2 italic">* شمل التلميذ بقرار سد الفجوة الامتحانية بموجب الصلاحيات المخولة.</p>}
               </div>
@@ -570,81 +599,98 @@ const StudentReport: React.FC<Props> = ({ season, schoolName }) => {
     <div className="max-w-5xl mx-auto space-y-8 animate-in fade-in pb-20 no-print">
       <div className="bg-white p-10 rounded-[4rem] shadow-sm border border-gray-100 text-center">
         <div className="flex flex-wrap justify-center gap-4 mb-10">
-           <button onClick={() => { setReportType('individual'); setIsViewingClassReport(false); setSelectedStudentId(null); }} className={`px-8 py-4 rounded-[2rem] font-black flex items-center gap-2 transition-all ${reportType === 'individual' ? 'bg-blue-600 text-white shadow-xl scale-105' : 'bg-slate-50 text-slate-400'}`}>
-             <User size={20} /> شهادة تلميذ
+           <button onClick={() => { setReportType('individual'); setIsViewingClassReport(false); setSelectedStudentId(isStudent ? currentUser.linkedId || null : null); }} className={`px-8 py-4 rounded-[2rem] font-black flex items-center gap-2 transition-all ${reportType === 'individual' ? 'bg-blue-600 text-white shadow-xl scale-105' : 'bg-slate-50 text-slate-400'}`}>
+             <User size={20} /> {isStudent ? 'درجاتي' : 'شهادة تلميذ'}
            </button>
-           <button onClick={() => { setReportType('class'); setIsViewingClassReport(false); setSelectedStudentId(null); }} className={`px-8 py-4 rounded-[2rem] font-black flex items-center gap-2 transition-all ${reportType === 'class' ? 'bg-blue-600 text-white shadow-xl scale-105' : 'bg-slate-50 text-slate-400'}`}>
-             <LayoutGrid size={20} /> السجل المجمع
-           </button>
-           <button onClick={() => { setReportType('absences'); setIsViewingClassReport(false); setSelectedStudentId(null); }} className={`px-8 py-4 rounded-[2rem] font-black flex items-center gap-2 transition-all ${reportType === 'absences' ? 'bg-red-600 text-white shadow-xl scale-105' : 'bg-slate-50 text-slate-400'}`}>
-             <CalendarX size={20} /> سجل غياب التلميذ
+           {!isStudent && (
+             <button onClick={() => { setReportType('class'); setIsViewingClassReport(false); setSelectedStudentId(null); }} className={`px-8 py-4 rounded-[2rem] font-black flex items-center gap-2 transition-all ${reportType === 'class' ? 'bg-blue-600 text-white shadow-xl scale-105' : 'bg-slate-50 text-slate-400'}`}>
+               <LayoutGrid size={20} /> السجل المجمع
+             </button>
+           )}
+           <button onClick={() => { setReportType('absences'); setIsViewingClassReport(false); setSelectedStudentId(isStudent ? currentUser.linkedId || null : null); }} className={`px-8 py-4 rounded-[2rem] font-black flex items-center gap-2 transition-all ${reportType === 'absences' ? 'bg-red-600 text-white shadow-xl scale-105' : 'bg-slate-50 text-slate-400'}`}>
+             <CalendarX size={20} /> {isStudent ? 'غياباتي' : 'سجل غياب التلميذ'}
            </button>
         </div>
 
-        {(reportType === 'individual' || reportType === 'absences') ? (
-          <>
-            <h3 className="text-2xl font-black text-slate-800 mb-2">
-              {reportType === 'absences' ? 'سجل الغيابات والإجازات الرسمي' : 'استخراج الشهادة المدرسية'}
-            </h3>
-            <div className="relative mb-10 mt-10">
-              <Search className="absolute right-6 top-1/2 -translate-y-1/2 text-slate-300" size={24} />
-              <input type="text" placeholder="اكتب اسم التلميذ أو رقم القيد للبحث..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pr-16 pl-6 py-6 border-4 border-slate-50 rounded-[2.5rem] outline-none focus:border-blue-600 bg-slate-50 font-black text-xl text-slate-900 text-right" />
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {searchResults.map(s => (
-                <button key={s.id} onClick={() => setSelectedStudentId(s.id)} className={`w-full flex items-center justify-between p-6 border-2 rounded-[2.5rem] transition-all text-right group shadow-sm ${s.status === 'dismissed' ? 'bg-red-50 border-red-100 hover:bg-red-600 hover:text-white' : 'bg-white border-slate-50 hover:bg-blue-600 hover:text-white'} text-slate-900`}>
-                  <div className="flex items-center gap-5">
-                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center font-black group-hover:bg-white/20 group-hover:text-white ${s.status === 'dismissed' ? 'bg-red-100 text-red-600' : 'bg-slate-100 text-slate-400'}`}>{s.name[0]}</div>
-                    <div className="flex-1">
-                      <p className={`font-black text-lg ${s.status === 'dismissed' ? 'line-through opacity-70' : ''}`}>{s.name}</p>
-                      <div className="flex gap-2 mt-1">
-                        <p className="text-[10px] font-bold opacity-70">الصف {GRADE_NAMES[s.grade]} - {s.section}</p>
-                        <p className="text-[10px] font-black text-blue-500 group-hover:text-white">قيد: {s.registerNumber || '---'}</p>
-                      </div>
-                    </div>
-                  </div>
-                  <ChevronRight size={20} />
-                </button>
-              ))}
-            </div>
-          </>
+        {isStudent ? (
+          <div className="py-20 text-center bg-slate-50 rounded-[3rem] border-4 border-dashed border-slate-100">
+            <h3 className="text-2xl font-black text-slate-800 mb-4">أهلاً بك يا {currentUser.name}</h3>
+            <p className="text-slate-500 font-bold">يرجى اختيار نوع الكشف الذي ترغب بمشاهدته من الأعلى.</p>
+          </div>
         ) : (
-          <div className="space-y-6">
-            <h3 className="text-2xl font-black text-slate-800 mb-6">إعداد السجل المجمع للصف</h3>
-            <div className="flex bg-slate-50 p-2 rounded-2xl border-2 border-slate-100 mb-8 max-w-md mx-auto">
-              <button onClick={() => setReportPeriod('midyear')} className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl font-black transition-all ${reportPeriod === 'midyear' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-400'}`}>
-                <CalendarDays size={20} /> درجات نصف السنة
-              </button>
-              <button onClick={() => setReportPeriod('final')} className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl font-black transition-all ${reportPeriod === 'final' ? 'bg-white text-emerald-600 shadow-sm' : 'text-slate-400'}`}>
-                <Medal size={20} /> الدرجات النهائية
-              </button>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-               <div className="space-y-2">
-                 <label className="block text-right font-black text-slate-500 mr-4 text-xs">الصف الدراسي</label>
-                 <select value={selectedGrade} onChange={e => {setSelectedGrade(parseInt(e.target.value)); setSelectedSection(''); setIsViewingClassReport(false);}} className="w-full p-5 bg-slate-50 border-4 border-slate-50 rounded-3xl font-black text-lg outline-none focus:border-blue-600 text-slate-900">
-                    {[1,2,3,4,5,6].map(g => <option key={g} value={g}>الصف {GRADE_NAMES[g]}</option>)}
-                 </select>
-               </div>
-               <div className="space-y-2">
-                 <label className="block text-right font-black text-slate-500 mr-4 text-xs">الشعبة</label>
-                 <select value={selectedSection} onChange={e => {setSelectedSection(e.target.value); setIsViewingClassReport(false);}} className="w-full p-5 bg-slate-50 border-4 border-slate-50 rounded-3xl font-black text-lg outline-none focus:border-blue-600 text-slate-900">
-                    <option value="">اختر الشعبة...</option>
-                    {(season.sections?.[selectedGrade] || []).map(s => <option key={s} value={s}>شعبة {s}</option>)}
-                 </select>
-               </div>
-            </div>
-            {selectedSection && (
-              <div className="mt-10 p-10 bg-blue-50 border-2 border-blue-100 rounded-[3rem] animate-in zoom-in text-center">
-                 <p className="font-black text-blue-700 text-xl mb-6 flex items-center justify-center gap-2">
-                    <UserCheck className="text-blue-600" /> تم العثور على {classStudents.length} تلميذ
-                 </p>
-                 <button onClick={() => setIsViewingClassReport(true)} className="bg-blue-600 text-white px-12 py-5 rounded-[2rem] font-black shadow-xl hover:bg-blue-700 hover:scale-105 transition-all flex items-center gap-2 mx-auto">
-                    <LayoutGrid size={24} /> فتح المعاينة المجمعة
-                 </button>
+          <>
+            {(reportType === 'individual' || reportType === 'absences') ? (
+              <>
+                <h3 className="text-2xl font-black text-slate-800 mb-2">
+                  {reportType === 'absences' ? 'سجل الغيابات والإجازات الرسمي' : 'استخراج الشهادة المدرسية'}
+                </h3>
+                <div className="relative mb-10 mt-10">
+                  <Search className="absolute right-6 top-1/2 -translate-y-1/2 text-slate-300" size={24} />
+                  <input type="text" placeholder="اكتب اسم التلميذ أو رقم القيد للبحث..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pr-16 pl-6 py-6 border-4 border-slate-50 rounded-[2.5rem] outline-none focus:border-blue-600 bg-slate-50 font-black text-xl text-slate-900 text-right" />
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {searchResults.map(s => (
+                    <button key={s.id} onClick={() => setSelectedStudentId(s.id)} className={`w-full flex items-center justify-between p-6 border-2 rounded-[2.5rem] transition-all text-right group shadow-sm ${s.status === 'dismissed' ? 'bg-red-50 border-red-100 hover:bg-red-600 hover:text-white' : 'bg-white border-slate-50 hover:bg-blue-600 hover:text-white'} text-slate-900`}>
+                      <div className="flex items-center gap-5">
+                        <div className={`w-12 h-12 rounded-2xl flex items-center justify-center font-black group-hover:bg-white/20 group-hover:text-white ${s.status === 'dismissed' ? 'bg-red-100 text-red-600' : 'bg-slate-100 text-slate-400'}`}>{s.name[0]}</div>
+                        <div className="flex-1">
+                          <p className={`font-black text-lg ${s.status === 'dismissed' ? 'line-through opacity-70' : ''}`}>{s.name}</p>
+                          <div className="flex gap-2 mt-1">
+                            <p className="text-[10px] font-bold opacity-70">الصف {GRADE_NAMES[s.grade]} - {s.section}</p>
+                            <p className="text-[10px] font-black text-blue-500 group-hover:text-white">قيد: {toArabicNums(s.registerNumber) || '---'}</p>
+                          </div>
+                        </div>
+                      </div>
+                      <ChevronRight size={20} />
+                    </button>
+                  ))}
+                </div>
+              </>
+            ) : (
+              <div className="space-y-6">
+                <h3 className="text-2xl font-black text-slate-800 mb-6">إعداد السجل المجمع للصف</h3>
+                <div className="flex bg-slate-50 p-2 rounded-2xl border-2 border-slate-100 mb-8 max-w-md mx-auto">
+                  <button onClick={() => setReportPeriod('midyear')} className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl font-black transition-all ${reportPeriod === 'midyear' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-400'}`}>
+                    <CalendarDays size={20} /> درجات نصف السنة
+                  </button>
+                  <button onClick={() => setReportPeriod('final')} className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl font-black transition-all ${reportPeriod === 'final' ? 'bg-white text-emerald-600 shadow-sm' : 'text-slate-400'}`}>
+                    <Medal size={20} /> الدرجات النهائية
+                  </button>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                   <div className="space-y-2">
+                     <label className="block text-right font-black text-slate-500 mr-4 text-xs">الصف الدراسي</label>
+                     <select value={selectedGrade} onChange={e => {setSelectedGrade(parseInt(e.target.value)); setSelectedSection(''); setIsViewingClassReport(false);}} className="w-full p-5 bg-slate-50 border-4 border-slate-50 rounded-3xl font-black text-lg outline-none focus:border-blue-600 text-slate-900">
+                        {(isTeacher 
+                          ? Array.from(new Set(teacherAssignments.map(a => a.gradeId)))
+                          : [1,2,3,4,5,6] as number[]
+                        ).map((g: number) => <option key={g} value={g}>الصف {GRADE_NAMES[g]}</option>)}
+                     </select>
+                   </div>
+                   <div className="space-y-2">
+                     <label className="block text-right font-black text-slate-500 mr-4 text-xs">الشعبة</label>
+                     <select value={selectedSection} onChange={e => {setSelectedSection(e.target.value); setIsViewingClassReport(false);}} className="w-full p-5 bg-slate-50 border-4 border-slate-50 rounded-3xl font-black text-lg outline-none focus:border-blue-600 text-slate-900">
+                        <option value="">اختر الشعبة...</option>
+                        {(isTeacher 
+                          ? Array.from(new Set(teacherAssignments.filter(a => a.gradeId === selectedGrade).map(a => a.sectionName)))
+                          : (season.sections?.[selectedGrade] || [])
+                        ).map((s: string) => <option key={s} value={s}>شعبة {s}</option>)}
+                     </select>
+                   </div>
+                </div>
+                {selectedSection && (
+                  <div className="mt-10 p-10 bg-blue-50 border-2 border-blue-100 rounded-[3rem] animate-in zoom-in text-center">
+                     <p className="font-black text-blue-700 text-xl mb-6 flex items-center justify-center gap-2">
+                        <UserCheck className="text-blue-600" /> تم العثور على {toArabicNums(classStudents.length)} تلميذ
+                     </p>
+                     <button onClick={() => setIsViewingClassReport(true)} className="bg-blue-600 text-white px-12 py-5 rounded-[2rem] font-black shadow-xl hover:bg-blue-700 hover:scale-105 transition-all flex items-center gap-2 mx-auto">
+                        <LayoutGrid size={24} /> فتح المعاينة المجمعة
+                     </button>
+                  </div>
+                )}
               </div>
             )}
-          </div>
+          </>
         )}
       </div>
     </div>

@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo } from 'react';
-import { Season, Student, GRADE_NAMES, AttendanceRecord } from '../types';
+import { Season, Student, GRADE_NAMES, AttendanceRecord, User as AppUser } from '../types';
 import { 
   Calendar, 
   Search, 
@@ -15,15 +15,34 @@ import {
   Coffee,
   Flag
 } from 'lucide-react';
+import { toArabicNums } from '../utils/calculations';
 
 interface Props {
   season: Season;
   onUpdate: (updates: Partial<Season>) => void;
+  currentUser: AppUser | null;
 }
 
-const AttendanceManager: React.FC<Props> = ({ season, onUpdate }) => {
-  const [selectedGrade, setSelectedGrade] = useState<number>(1);
-  const [selectedSection, setSelectedSection] = useState<string>('');
+const AttendanceManager: React.FC<Props> = ({ season, onUpdate, currentUser }) => {
+  const isTeacher = currentUser?.role === 'teacher';
+  const teacherId = currentUser?.linkedId;
+
+  const teacherAssignments = useMemo(() => {
+    if (!isTeacher || !teacherId) return [];
+    const teacher = (season.teachers || []).find(t => t.id === teacherId);
+    return teacher?.assignments || [];
+  }, [isTeacher, teacherId, season.teachers]);
+
+  const [selectedGrade, setSelectedGrade] = useState<number>(() => {
+    if (isTeacher && teacherAssignments.length > 0) return teacherAssignments[0].gradeId;
+    return 1;
+  });
+
+  const [selectedSection, setSelectedSection] = useState<string>(() => {
+    if (isTeacher && teacherAssignments.length > 0) return teacherAssignments[0].sectionName;
+    return '';
+  });
+
   const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().split('T')[0]);
   const [searchTerm, setSearchTerm] = useState('');
 
@@ -65,7 +84,7 @@ const AttendanceManager: React.FC<Props> = ({ season, onUpdate }) => {
   };
 
   const filteredStudents = useMemo(() => {
-    return season.students.filter(s => 
+    return (season.students || []).filter(s => 
       s.grade === selectedGrade && 
       s.section === selectedSection &&
       (searchTerm === '' || s.name.includes(searchTerm) || s.registerNumber?.includes(searchTerm))
@@ -96,7 +115,7 @@ const AttendanceManager: React.FC<Props> = ({ season, onUpdate }) => {
 
     // تحديث حالة الفصل إذا وصل لـ 51 يوم غياب فعلي (غير المجاز)
     const newAbsentTotal = newAttendance.filter(r => r.studentId === studentId && r.type === 'absent').length;
-    let newStudents = [...season.students];
+    let newStudents = [...(season.students || [])];
     const studentIdx = newStudents.findIndex(s => s.id === studentId);
     
     if (studentIdx > -1) {
@@ -162,9 +181,9 @@ const AttendanceManager: React.FC<Props> = ({ season, onUpdate }) => {
 
           <div className="lg:col-span-7 grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
-              <label className="block text-xs font-black text-slate-400 mb-3 mr-2">الصف</label>
+              <label className="block text-xs font-black text-slate-400 mb-3 mr-2">{isTeacher ? 'الصفوف المعينة لك' : 'الصف'}</label>
               <div className="flex gap-1 overflow-x-auto pb-2 custom-scrollbar">
-                {[1, 2, 3, 4, 5, 6].map(g => (
+                {(isTeacher ? Array.from(new Set(teacherAssignments.map(a => a.gradeId))) : [1, 2, 3, 4, 5, 6] as number[]).map((g: number) => (
                   <button 
                     key={g} 
                     onClick={() => {setSelectedGrade(g); setSelectedSection('');}} 
@@ -183,7 +202,10 @@ const AttendanceManager: React.FC<Props> = ({ season, onUpdate }) => {
                 className="w-full px-5 py-4 border-2 border-slate-100 rounded-2xl outline-none font-black text-slate-900 bg-slate-50 focus:bg-white focus:border-blue-600 transition-all"
               >
                 <option value="">-- اختر الشعبة --</option>
-                {(season.sections?.[selectedGrade] || []).map(s => <option key={s} value={s}>شعبة {s}</option>)}
+                {(isTeacher 
+                  ? Array.from(new Set(teacherAssignments.filter(a => a.gradeId === selectedGrade).map(a => a.sectionName)))
+                  : (season.sections?.[selectedGrade] || [])
+                ).map((s: string) => <option key={s} value={s}>شعبة {toArabicNums(s)}</option>)}
               </select>
             </div>
           </div>
@@ -205,7 +227,7 @@ const AttendanceManager: React.FC<Props> = ({ season, onUpdate }) => {
                <div className="p-4 bg-white/10 rounded-2xl"><UserCheck className="text-emerald-400" size={28} /></div>
                <div>
                  <h3 className="text-xl font-black">رصد حضور تلميذ</h3>
-                 <p className="text-xs text-slate-400 mt-1 font-bold italic">{getArabicDayName(selectedDate)} | {selectedDate}</p>
+                 <p className="text-xs text-slate-400 mt-1 font-bold italic">{getArabicDayName(selectedDate)} | {toArabicNums(selectedDate)}</p>
                </div>
             </div>
             <div className="relative w-full md:w-80">
@@ -255,8 +277,8 @@ const AttendanceManager: React.FC<Props> = ({ season, onUpdate }) => {
                     <h4 className="font-black text-xl mb-1 text-slate-800 leading-tight">{student.name}</h4>
 
                     <div className="flex gap-2 mt-4">
-                       <div className="px-3 py-1.5 rounded-xl border border-red-100 bg-red-50 text-red-600 font-black text-[10px]">غائب: {absentCount}</div>
-                       <div className="px-3 py-1.5 rounded-xl border border-amber-100 bg-amber-50 text-amber-600 font-black text-[10px]">مجاز: {excusedCount}</div>
+                       <div className="px-3 py-1.5 rounded-xl border border-red-100 bg-red-50 text-red-600 font-black text-[10px]">غائب: {toArabicNums(absentCount)}</div>
+                       <div className="px-3 py-1.5 rounded-xl border border-amber-100 bg-amber-50 text-amber-600 font-black text-[10px]">مجاز: {toArabicNums(excusedCount)}</div>
                     </div>
 
                     <div className="w-full mt-8 grid grid-cols-2 gap-3">
@@ -266,7 +288,7 @@ const AttendanceManager: React.FC<Props> = ({ season, onUpdate }) => {
                     </div>
 
                     {absentCount >= 51 && !isDismissed && (
-                       <p className="mt-4 text-[10px] text-red-600 font-black animate-bounce flex items-center gap-1"><AlertTriangle size={12} /> التلميذ تجاوز الـ 51 يوماً</p>
+                       <p className="mt-4 text-[10px] text-red-600 font-black animate-bounce flex items-center gap-1"><AlertTriangle size={12} /> التلميذ تجاوز الـ {toArabicNums(51)} يوماً</p>
                     )}
                   </div>
                 );

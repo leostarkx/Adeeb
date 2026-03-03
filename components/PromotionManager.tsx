@@ -2,7 +2,7 @@
 import React, { useState, useMemo } from 'react';
 import { Season, AppState, GRADE_NAMES, Student, Graduate } from '../types';
 import { ArrowUpCircle, Info, ChevronRight, CheckCircle2, AlertTriangle, Users, Database, Zap, Medal } from 'lucide-react';
-import { getPrimaryResult } from '../utils/calculations';
+import { getPrimaryResult, toArabicNums } from '../utils/calculations';
 
 interface Props {
   season: Season;
@@ -62,14 +62,14 @@ const PromotionManager: React.FC<Props> = ({ season, onUpdate, state, setState }
       return;
     }
 
-    if (!confirm(`هل أنت متأكد من ترحيل ${analysis.passed + analysis.failed} تلميذ إلى موسم ${targetSeason?.name}؟ سيتم ترقية الناجحين وبقاء الراسبين في صفوفهم، ونقل طلاب السادس الناجحين لسجل الخريجين.`)) return;
+    if (!confirm(`هل أنت متأكد من ترحيل ${toArabicNums(analysis.passed + analysis.failed)} تلميذ إلى موسم ${toArabicNums(targetSeason?.name || '')}؟ سيتم ترقية الناجحين وبقاء الراسبين في صفوفهم، ونقل طلاب السادس الناجحين لسجل الخريجين.`)) return;
 
     setIsProcessing(true);
 
     const newStudentsInTarget: Student[] = [...(targetSeason?.students || [])];
     const newGraduates: Graduate[] = [...(state.graduates || [])];
     
-    season.students.forEach(student => {
+    (season.students || []).forEach(student => {
       const studentResult = analysis.results.find(r => r.id === student.id);
       
       if (studentResult?.status === 'ناجح') {
@@ -152,19 +152,19 @@ const PromotionManager: React.FC<Props> = ({ season, onUpdate, state, setState }
             <div className="space-y-4">
               <div className="flex justify-between items-center bg-white p-4 rounded-2xl shadow-sm">
                 <span className="text-sm font-bold text-slate-500">إجمالي التلاميذ</span>
-                <span className="font-black text-slate-800">{analysis.total}</span>
+                <span className="font-black text-slate-800">{toArabicNums(analysis.total)}</span>
               </div>
               <div className="flex justify-between items-center bg-emerald-50 p-4 rounded-2xl border border-emerald-100">
                 <span className="text-sm font-bold text-emerald-600">ناجحون (ترقية للصف التالي)</span>
-                <span className="font-black text-emerald-700">{analysis.passed}</span>
+                <span className="font-black text-emerald-700">{toArabicNums(analysis.passed)}</span>
               </div>
               <div className="flex justify-between items-center bg-blue-50 p-4 rounded-2xl border border-blue-100">
                 <span className="text-sm font-bold text-blue-600">خريجو السادس (للأرشفة)</span>
-                <span className="font-black text-blue-700">{analysis.graduated}</span>
+                <span className="font-black text-blue-700">{toArabicNums(analysis.graduated)}</span>
               </div>
               <div className="flex justify-between items-center bg-red-50 p-4 rounded-2xl border border-red-100">
                 <span className="text-sm font-bold text-red-600">راسبون (بقاؤهم في نفس الصف)</span>
-                <span className="font-black text-red-700">{analysis.failed}</span>
+                <span className="font-black text-red-700">{toArabicNums(analysis.failed)}</span>
               </div>
             </div>
           </div>
@@ -185,7 +185,7 @@ const PromotionManager: React.FC<Props> = ({ season, onUpdate, state, setState }
                 >
                   <option value="">-- اختر موسم الهدف --</option>
                   {state.seasons.filter(s => s.id !== season.id).map(s => (
-                    <option key={s.id} value={s.id}>{s.name} ({s.students?.length || 0} تلميذ حالياً)</option>
+                    <option key={s.id} value={s.id}>{toArabicNums(s.name)} ({toArabicNums(s.students?.length || 0)} تلميذ حالياً)</option>
                   ))}
                 </select>
               </div>
@@ -194,8 +194,8 @@ const PromotionManager: React.FC<Props> = ({ season, onUpdate, state, setState }
                 <div className="bg-blue-50 p-4 rounded-2xl text-blue-700 text-xs font-bold flex items-start gap-3">
                   <Info size={18} className="shrink-0" />
                   <div className="space-y-1">
-                    <p>• الناجحون (1-5) سيرقون للصف الأعلى في "{targetSeason.name}".</p>
-                    <p>• الراسبون سيبقون في نفس صفهم في "{targetSeason.name}".</p>
+                    <p>• الناجحون (1-5) سيرقون للصف الأعلى في "{toArabicNums(targetSeason.name)}".</p>
+                    <p>• الراسبون سيبقون في نفس صفهم في "{toArabicNums(targetSeason.name)}".</p>
                     <p>• خريجو السادس سيتم حفظهم في سجل الخريجين العام.</p>
                   </div>
                 </div>

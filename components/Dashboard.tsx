@@ -2,6 +2,7 @@
 import React from 'react';
 import { AppState } from '../types';
 import { Users, GraduationCap, Calendar, BookOpen, Coffee, Layers, CalendarX, UserCheck, UserX } from 'lucide-react';
+import { toArabicNums } from '../utils/calculations';
 
 interface Props {
   state: AppState;
@@ -13,17 +14,17 @@ const Dashboard: React.FC<Props> = ({ state, onShowDevInfo }) => {
   const activeSeason = state.seasons.find(s => s.id === state.activeSeasonId);
 
   const statsRow1 = [
-    { label: 'المواسم الدراسية', value: state.seasons.length, icon: Calendar, color: 'text-blue-600', bg: 'bg-blue-50' },
-    { label: 'الطلاب المسجلين', value: activeSeason?.students.length || 0, icon: Users, color: 'text-emerald-600', bg: 'bg-emerald-50' },
-    { label: 'المعلمون', value: activeSeason?.teachers.length || 0, icon: GraduationCap, color: 'text-purple-600', bg: 'bg-purple-50' },
-    { label: 'المواد الدراسية', value: activeSeason ? Object.values(activeSeason.subjects).flat().length : 0, icon: BookOpen, color: 'text-amber-600', bg: 'bg-amber-50' },
+    { label: 'المواسم الدراسية', value: toArabicNums(state.seasons.length), icon: Calendar, color: 'text-blue-600', bg: 'bg-blue-50' },
+    { label: 'الطلاب المسجلين', value: toArabicNums(activeSeason?.students?.length || 0), icon: Users, color: 'text-emerald-600', bg: 'bg-emerald-50' },
+    { label: 'المعلمون', value: toArabicNums(activeSeason?.teachers?.length || 0), icon: GraduationCap, color: 'text-purple-600', bg: 'bg-purple-50' },
+    { label: 'المواد الدراسية', value: toArabicNums(activeSeason?.subjects ? Object.values(activeSeason.subjects).flat().length : 0), icon: BookOpen, color: 'text-amber-600', bg: 'bg-amber-50' },
   ];
 
   const statsRow2 = [
-    { label: 'إجمالي الشعب', value: activeSeason ? Object.values(activeSeason.sections).flat().length : 0, icon: Layers, color: 'text-indigo-600', bg: 'bg-indigo-50' },
-    { label: 'إجمالي الغيابات', value: activeSeason?.attendance.filter(a => a.type === 'absent').length || 0, icon: CalendarX, color: 'text-red-600', bg: 'bg-red-50' },
-    { label: 'الطلاب المستمرين', value: activeSeason?.students.filter(s => s.status !== 'dismissed').length || 0, icon: UserCheck, color: 'text-cyan-600', bg: 'bg-cyan-50' },
-    { label: 'الطلاب المفصولين', value: activeSeason?.students.filter(s => s.status === 'dismissed').length || 0, icon: UserX, color: 'text-slate-600', bg: 'bg-slate-50' },
+    { label: 'إجمالي الشعب', value: toArabicNums(activeSeason?.sections ? Object.values(activeSeason.sections).flat().length : 0), icon: Layers, color: 'text-indigo-600', bg: 'bg-indigo-50' },
+    { label: 'إجمالي الغيابات', value: toArabicNums(activeSeason?.attendance?.filter(a => a.type === 'absent').length || 0), icon: CalendarX, color: 'text-red-600', bg: 'bg-red-50' },
+    { label: 'الطلاب المستمرين', value: toArabicNums(activeSeason?.students?.filter(s => s.status !== 'dismissed').length || 0), icon: UserCheck, color: 'text-cyan-600', bg: 'bg-cyan-50' },
+    { label: 'الطلاب المفصولين', value: toArabicNums(activeSeason?.students?.filter(s => s.status === 'dismissed').length || 0), icon: UserX, color: 'text-slate-600', bg: 'bg-slate-50' },
   ];
 
   return (

@@ -5,9 +5,11 @@ import {
   Calendar, Menu, X, Trash2, Settings, History, School, Cloud, 
   Globe, HardDrive, FileJson, FileUp, RefreshCw,
   MessageCircle, Send, Instagram, Coffee, Download, ArrowUpCircle, 
-  Medal, CalendarCheck, Gavel, FileText
+  Medal, CalendarCheck, Gavel, FileText, LogOut, ShieldCheck,
+  User as UserIcon
 } from 'lucide-react';
-import { Season, AppState, ThemeType, DEFAULT_THEMES, GoogleDriveConfig } from './types';
+import { Season, AppState, ThemeType, DEFAULT_THEMES, GoogleDriveConfig, User } from './types';
+import { toArabicNums } from './utils/calculations';
 import Dashboard from './components/Dashboard';
 import SeasonManager from './components/SeasonManager';
 import PeopleManager from './components/PeopleManager';
@@ -16,12 +18,13 @@ import GradeEntry from './components/GradeEntry';
 import StudentReport from './components/StudentReport';
 import CertificatesCenter from './components/CertificatesCenter';
 import StatsView from './components/StatsView';
-import DeleteCenter from './components/DeleteCenter';
 import HonorBoard from './components/HonorBoard';
 import AttendanceManager from './components/AttendanceManager';
 import PromotionManager from './components/PromotionManager';
 import DecisionManager from './components/DecisionManager';
 import GraduatesView from './components/GraduatesView';
+import Login from './components/Login';
+import UserManager from './components/UserManager';
 
 const DEFAULT_LOGO_URL = "https://image2url.com/r2/default/images/1769798562819-9854cd28-07cb-4eeb-b7b3-462e57a0bb4e.png";
 
@@ -36,6 +39,8 @@ const App: React.FC = () => {
         if (!data.graduates) data.graduates = [];
         if (!data.schoolName) data.schoolName = "مدرسة الأديب الابتدائية";
         if (!data.driveConfig) data.driveConfig = { isConnected: false, autoSync: true, fileName: 'al_adeeb_backup.json' };
+        if (!data.users) data.users = [];
+        if (!data.currentUser) data.currentUser = null;
         return data;
       } catch (e) {
         console.error("Error parsing saved data", e);
@@ -48,7 +53,9 @@ const App: React.FC = () => {
       activeSeasonId: null, 
       theme: 'classic', 
       themeConfig: { ...DEFAULT_THEMES },
-      driveConfig: { isConnected: false, autoSync: true, fileName: 'al_adeeb_backup.json' }
+      driveConfig: { isConnected: false, autoSync: true, fileName: 'al_adeeb_backup.json' },
+      users: [],
+      currentUser: null
     };
   });
 
@@ -82,22 +89,53 @@ const App: React.FC = () => {
     [state.seasons, state.activeSeasonId]
   );
 
-  const menuItems = [
-    { id: 'dashboard', label: 'الرئيسية', icon: LayoutDashboard },
-    { id: 'seasons', label: 'المواسم الدراسية', icon: Calendar },
-    { id: 'subjects', label: 'المواد والصفوف', icon: BookOpen, disabled: !activeSeason },
-    { id: 'people', label: 'المعلمون والطلاب', icon: Users, disabled: !activeSeason },
-    { id: 'attendance', label: 'سجل الغيابات', icon: CalendarCheck, disabled: !activeSeason },
-    { id: 'grades', label: 'رصد الدرجات', icon: GraduationCap, disabled: !activeSeason },
-    { id: 'decision', label: 'نظام القرار', icon: Gavel, disabled: !activeSeason },
-    { id: 'honor', label: 'لوحة الشرف', icon: Medal, disabled: !activeSeason },
-    { id: 'certificates', label: 'الشهادات', icon: FileText, disabled: !activeSeason },
-    { id: 'reports', label: 'سجل الطالب', icon: GraduationCap, disabled: !activeSeason },
-    { id: 'stats', label: 'الإحصائيات', icon: BarChart3, disabled: !activeSeason },
-    { id: 'promotion', label: 'الترحيل', icon: ArrowUpCircle, disabled: !activeSeason },
-    { id: 'graduates', label: 'أرشيف الطلاب', icon: History },
-    { id: 'delete-center', label: 'مركز الحذف القاطع', icon: Trash2, highlight: true },
-  ];
+  const menuItems = useMemo(() => {
+    const items = [
+      { id: 'dashboard', label: 'الرئيسية', icon: LayoutDashboard },
+      { id: 'seasons', label: 'المواسم الدراسية', icon: Calendar },
+      { id: 'subjects', label: 'المواد والصفوف', icon: BookOpen, disabled: !activeSeason },
+      { id: 'people', label: 'المعلمون والطلاب', icon: Users, disabled: !activeSeason },
+      { id: 'attendance', label: 'سجل الغيابات', icon: CalendarCheck, disabled: !activeSeason },
+      { id: 'grades', label: 'رصد الدرجات', icon: GraduationCap, disabled: !activeSeason },
+      { id: 'decision', label: 'نظام القرار', icon: Gavel, disabled: !activeSeason },
+      { id: 'honor', label: 'لوحة الشرف', icon: Medal, disabled: !activeSeason },
+      { id: 'certificates', label: 'الشهادات', icon: FileText, disabled: !activeSeason },
+      { id: 'reports', label: 'سجل الطالب', icon: GraduationCap, disabled: !activeSeason },
+      { id: 'stats', label: 'الإحصائيات', icon: BarChart3, disabled: !activeSeason },
+      { id: 'promotion', label: 'الترحيل', icon: ArrowUpCircle, disabled: !activeSeason },
+      { id: 'graduates', label: 'أرشيف الطلاب', icon: History },
+      { id: 'users', label: 'إدارة الصلاحيات', icon: ShieldCheck, role: 'principal' },
+    ];
+
+    if (!state.currentUser) return [];
+
+    return items.filter(item => {
+      if (state.currentUser?.role === 'principal') return true;
+      
+      if (state.currentUser?.role === 'assistant') {
+        return state.currentUser.permissions?.includes(item.id) || item.id === 'dashboard';
+      }
+
+      if (state.currentUser?.role === 'teacher') {
+        return ['dashboard', 'grades', 'attendance', 'reports'].includes(item.id);
+      }
+
+      if (state.currentUser?.role === 'student') {
+        return ['dashboard', 'reports'].includes(item.id);
+      }
+
+      return false;
+    });
+  }, [activeSeason, state.currentUser]);
+
+  const handleLogin = (user: User) => {
+    setState(prev => ({ ...prev, currentUser: user }));
+    setActiveTab('dashboard');
+  };
+
+  const handleLogout = () => {
+    setState(prev => ({ ...prev, currentUser: null }));
+  };
 
   const updateActiveSeason = (updates: Partial<Season>) => {
     if (!state.activeSeasonId) return;
@@ -136,7 +174,9 @@ const App: React.FC = () => {
       activeSeasonId: json.activeSeasonId || (json.seasons?.length > 0 ? json.seasons[0].id : null),
       theme: json.theme || 'classic',
       themeConfig: json.themeConfig || { ...DEFAULT_THEMES },
-      driveConfig: json.driveConfig || { isConnected: false, autoSync: true, fileName: 'al_adeeb_backup.json' }
+      driveConfig: json.driveConfig || { isConnected: false, autoSync: true, fileName: 'al_adeeb_backup.json' },
+      users: json.users || [],
+      currentUser: null
     };
 
     setState(mergedState);
@@ -208,101 +248,120 @@ const App: React.FC = () => {
     }
   };
 
+  if (!state.currentUser) {
+    return <Login state={state} onLogin={handleLogin} />;
+  }
+
   return (
-    <div className="flex min-h-screen overflow-x-hidden transition-all duration-500">
-      
-      {isSidebarOpen && (
-        <div className="fixed inset-0 z-[45] bg-slate-900/40 backdrop-blur-[2px] lg:hidden animate-in fade-in" onClick={() => setSidebarOpen(false)}></div>
-      )}
-
-      <aside className={`fixed inset-y-0 right-0 z-50 w-72 bg-white shadow-2xl transition-all duration-500 transform lg:sticky lg:top-0 lg:h-screen lg:translate-x-0 no-print ${isSidebarOpen ? 'translate-x-0' : 'translate-x-full'} border-l border-gray-100/10`}>
+    <div className="flex h-screen overflow-hidden bg-slate-50" dir="rtl">
+      {/* Sidebar */}
+      <aside className={`fixed inset-y-0 right-0 z-50 w-72 bg-white border-l border-slate-100 shadow-2xl transition-transform duration-300 lg:relative lg:translate-x-0 ${isSidebarOpen ? 'translate-x-0' : 'translate-x-full'}`}>
         <div className="flex flex-col h-full">
-          <div className="p-8 border-b border-gray-50/10 relative">
-             <div className="bg-white w-20 h-20 rounded-full flex items-center justify-center mb-4 shadow-2xl border border-slate-100 overflow-hidden">
-               <img src={DEFAULT_LOGO_URL} alt="المدرسة" className="w-full h-full object-contain" />
-             </div>
-             <h1 className="text-xl font-black truncate">{state.schoolName}</h1>
-             <div className="flex items-center gap-2 mt-1">
-               <div className={`w-2 h-2 rounded-full ${state.driveConfig?.isConnected ? 'bg-emerald-500' : 'bg-red-500'}`}></div>
-               <p className="text-[10px] font-black text-slate-400 uppercase">
-                 {state.driveConfig?.isConnected ? 'مرتبط بـ Google Drive' : 'تخزين محلي فقط'}
-               </p>
-             </div>
-          </div>
-
-          <nav className="flex-1 p-6 space-y-1.5 overflow-y-auto custom-scrollbar">
-            {menuItems.map(item => (
-              <button
-                key={item.id}
-                onClick={() => !item.disabled && (setActiveTab(item.id), setSidebarOpen(false))}
-                disabled={item.disabled}
-                className={`w-full flex items-center gap-4 px-5 py-4 rounded-[1.2rem] font-black transition-all ${
-                  activeTab === item.id 
-                    ? item.highlight ? 'bg-red-600 text-white shadow-lg shadow-red-100' : 'bg-blue-600 text-white shadow-lg shadow-blue-100 scale-102'
-                    : item.disabled ? 'opacity-20 grayscale cursor-not-allowed' : 'text-slate-400 hover:bg-gray-50'
-                }`}
+          <div className="p-8 border-b border-slate-50">
+            <div className="flex items-center gap-4 mb-6">
+              <div className="w-12 h-12 bg-blue-600 rounded-2xl flex items-center justify-center shadow-lg shadow-blue-100">
+                <School className="text-white" size={24} />
+              </div>
+              <h1 className="text-xl font-black text-slate-800 leading-tight">{state.schoolName}</h1>
+            </div>
+            
+            <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center text-blue-600 shadow-sm">
+                  <UserIcon size={20} />
+                </div>
+                <div className="overflow-hidden">
+                  <p className="text-xs font-black text-slate-800 truncate">{state.currentUser.name}</p>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                    {state.currentUser.role === 'principal' ? 'المدير العام' : 
+                     state.currentUser.role === 'assistant' ? 'معاون' : 
+                     state.currentUser.role === 'teacher' ? 'معلم' : 'طالب'}
+                  </p>
+                </div>
+              </div>
+              <button 
+                onClick={handleLogout}
+                className="w-full mt-4 py-2 flex items-center justify-center gap-2 bg-white text-red-500 rounded-xl text-[10px] font-black hover:bg-red-50 transition-all border border-red-50"
               >
-                <item.icon size={20} />
-                <span className="text-sm">{item.label}</span>
+                <LogOut size={14} /> تسجيل الخروج
               </button>
-            ))}
-          </nav>
-
-          <div className="p-6 border-t border-gray-50/10 space-y-3">
-            <button 
-              onClick={() => saveToGoogleDrive()} 
-              disabled={isSyncing} 
-              className={`w-full flex items-center justify-center gap-3 px-4 py-3 rounded-xl font-black text-[11px] transition-all border ${
-                state.driveConfig?.isConnected 
-                  ? 'bg-blue-50 text-blue-700 border-blue-100 hover:bg-blue-100' 
-                  : 'bg-emerald-50 text-emerald-700 border-emerald-100 hover:bg-emerald-100'
-              }`}
-            >
-              {isSyncing ? <Globe size={16} className="animate-spin" /> : (state.driveConfig?.isConnected ? <HardDrive size={16} /> : <Cloud size={16} />)}
-              {isSyncing ? 'جاري المزامنة...' : (state.driveConfig?.isConnected ? 'مزامنة Google Drive' : 'ربط Google Drive')}
-            </button>
+            </div>
           </div>
+
+          <nav className="flex-1 overflow-y-auto p-4 custom-scrollbar">
+            <div className="space-y-1">
+              {menuItems.map((item) => (
+                <button
+                  key={item.id}
+                  disabled={item.disabled}
+                  onClick={() => {
+                    setActiveTab(item.id);
+                    setSidebarOpen(false);
+                  }}
+                  className={`w-full flex items-center gap-4 px-6 py-4 rounded-2xl text-sm font-black transition-all ${
+                    activeTab === item.id
+                      ? 'bg-blue-600 text-white shadow-lg shadow-blue-100'
+                      : item.disabled
+                      ? 'text-slate-200 cursor-not-allowed'
+                      : item.highlight
+                      ? 'text-red-500 hover:bg-red-50'
+                      : 'text-slate-500 hover:bg-slate-50'
+                  }`}
+                >
+                  <item.icon size={20} />
+                  <span>{item.label}</span>
+                </button>
+              ))}
+            </div>
+          </nav>
         </div>
       </aside>
 
-      <div className="flex-1 flex flex-col min-w-0 h-screen overflow-y-auto custom-scrollbar relative">
-        <header className="sticky top-0 z-40 bg-white/70 backdrop-blur-2xl border-b border-gray-100/10 px-8 py-6 flex justify-between items-center no-print">
-          <div className="flex items-center gap-6">
-            <button onClick={() => setSidebarOpen(true)} className="p-3 bg-slate-100 text-slate-500 rounded-2xl lg:hidden">
-               <Menu size={20} />
-            </button>
-            <h2 className="text-2xl font-black">{menuItems.find(i => i.id === activeTab)?.label}</h2>
-          </div>
-          
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+        <header className="h-20 bg-white border-b border-slate-100 flex items-center justify-between px-8 no-print">
           <div className="flex items-center gap-4">
-            {state.driveConfig?.lastSync && (
-              <span className="text-[10px] font-bold text-slate-400 no-mobile">آخر مزامنة: {state.driveConfig.lastSync}</span>
-            )}
-            <button onClick={() => setShowSettings(true)} className="p-3 bg-slate-100 text-slate-500 rounded-xl hover:bg-blue-600 hover:text-white transition-all shadow-sm">
-              <Settings size={18} />
+            <button onClick={() => setSidebarOpen(true)} className="p-3 text-slate-500 hover:bg-slate-50 rounded-2xl lg:hidden">
+              <Menu size={24} />
             </button>
+            <div className="hidden md:block">
+              <h2 className="text-lg font-black text-slate-800">{menuItems.find(i => i.id === activeTab)?.label}</h2>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                {activeSeason ? `الموسم الدراسي: ${activeSeason.name}` : 'يرجى اختيار موسم دراسي'}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3">
+            {state.currentUser.role === 'principal' && (
+              <button onClick={() => setShowSettings(true)} className="p-3 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-2xl transition-all">
+                <Settings size={22} />
+              </button>
+            )}
+            <div className="h-8 w-[1px] bg-slate-100 mx-2"></div>
+            <div className="flex items-center gap-3 bg-slate-50 px-4 py-2 rounded-2xl border border-slate-100">
+              <div className="w-8 h-8 bg-blue-600 rounded-xl flex items-center justify-center text-white shadow-sm">
+                <School size={16} />
+              </div>
+              <span className="text-xs font-black text-slate-800 hidden sm:inline">{state.schoolName}</span>
+            </div>
           </div>
         </header>
 
-        <main className="p-8 max-w-[1600px] mx-auto w-full flex-1">
-          {activeTab === 'dashboard' && <Dashboard state={state} setState={setState} onShowDevInfo={() => setShowDevInfo(true)} />}
+        <main className="flex-1 overflow-y-auto p-8 custom-scrollbar">
+          {activeTab === 'dashboard' && <Dashboard state={state} activeSeason={activeSeason} />}
           {activeTab === 'seasons' && <SeasonManager state={state} setState={setState} />}
-          {activeTab === 'delete-center' && <DeleteCenter state={state} setState={setState} />}
-          {activeTab === 'graduates' && <GraduatesView state={state} />}
-          {activeSeason && (
-            <div className="animate-in">
-              {activeTab === 'subjects' && <SubjectsManager season={activeSeason} onUpdate={updateActiveSeason} />}
-              {activeTab === 'people' && <PeopleManager season={activeSeason} onUpdate={updateActiveSeason} />}
-              {activeTab === 'attendance' && <AttendanceManager season={activeSeason} onUpdate={updateActiveSeason} />}
-              {activeTab === 'grades' && <GradeEntry season={activeSeason} onUpdate={updateActiveSeason} />}
-              {activeTab === 'honor' && <HonorBoard season={activeSeason} schoolName={state.schoolName} />}
-              {activeTab === 'certificates' && <CertificatesCenter season={activeSeason} schoolName={state.schoolName} />}
-              {activeTab === 'reports' && <StudentReport season={activeSeason} schoolName={state.schoolName} />}
-              {activeTab === 'stats' && <StatsView season={activeSeason} />}
-              {activeTab === 'promotion' && <PromotionManager season={activeSeason} onUpdate={updateActiveSeason} state={state} setState={setState} />}
-              {activeTab === 'decision' && <DecisionManager season={activeSeason} onUpdate={updateActiveSeason} />}
-            </div>
-          )}
+          {activeTab === 'subjects' && activeSeason && <SubjectsManager season={activeSeason} updateSeason={updateActiveSeason} />}
+          {activeTab === 'people' && activeSeason && <PeopleManager season={activeSeason} onUpdate={updateActiveSeason} setState={setState} />}
+          {activeTab === 'attendance' && activeSeason && <AttendanceManager season={activeSeason} onUpdate={updateActiveSeason} currentUser={state.currentUser} />}
+          {activeTab === 'grades' && activeSeason && <GradeEntry season={activeSeason} onUpdate={updateActiveSeason} currentUser={state.currentUser} />}
+          {activeTab === 'decision' && activeSeason && <DecisionManager season={activeSeason} onUpdate={updateActiveSeason} />}
+          {activeTab === 'honor' && activeSeason && <HonorBoard season={activeSeason} />}
+          {activeTab === 'certificates' && activeSeason && <CertificatesCenter season={activeSeason} schoolName={state.schoolName} />}
+          {activeTab === 'reports' && activeSeason && <StudentReport season={activeSeason} schoolName={state.schoolName} currentUser={state.currentUser} />}
+          {activeTab === 'stats' && activeSeason && <StatsView season={activeSeason} />}
+          {activeTab === 'promotion' && activeSeason && <PromotionManager state={state} setState={setState} season={activeSeason} onUpdate={updateActiveSeason} />}
+          {activeTab === 'graduates' && <GraduatesView state={state} setState={setState} />}
+          {activeTab === 'users' && <UserManager state={state} setState={setState} activeSeason={activeSeason} />}
         </main>
       </div>
 
@@ -446,7 +505,7 @@ const App: React.FC = () => {
                       <MessageCircle size={20} />
                       <span className="text-sm">الواتساب</span>
                     </div>
-                    <span className="text-xs">07866330605</span>
+                    <span className="text-xs">{toArabicNums('07866330605')}</span>
                   </a>
 
                   <a 

@@ -77,9 +77,15 @@ export const calculateGrades = (record: Partial<GradeRecord>, isPrimary: boolean
   return updated;
 };
 
+export const toArabicNums = (num: number | string | undefined | null): string => {
+  if (num === undefined || num === null) return '';
+  const str = num.toString();
+  return str.replace(/\d/g, d => '٠١٢٣٤٥٦٧٨٩'[parseInt(d)]);
+};
+
 export const formatGrade = (val?: number) => {
   if (val === undefined || val === null || isNaN(val)) return '-';
-  return Math.round(val).toString();
+  return toArabicNums(Math.round(val));
 };
 
 export const getPrimaryResult = (grades: (number | undefined)[], isPrimary: boolean) => {

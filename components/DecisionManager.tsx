@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { Season, Student, GradeRecord, GRADE_NAMES } from '../types';
-import { calculateGrades } from '../utils/calculations';
+import { calculateGrades, toArabicNums } from '../utils/calculations';
 import { Gavel, Star, AlertCircle, CheckCircle2, Info, Users, ArrowRightCircle } from 'lucide-react';
 
 interface Props {
@@ -26,12 +26,12 @@ const DecisionManager: React.FC<Props> = ({ season, onUpdate }) => {
 
   // حساب المرشحين للقرار
   const candidates = useMemo(() => {
-    const students = season.students.filter(s => s.grade === activeGrade && s.status !== 'dismissed');
+    const students = (season.students || []).filter(s => s.grade === activeGrade && s.status !== 'dismissed');
     const result: DecisionCandidate[] = [];
 
     students.forEach(student => {
-      const studentGrades = season.grades.filter(g => g.studentId === student.id);
-      const subjects = season.subjects[activeGrade] || [];
+      const studentGrades = (season.grades || []).filter(g => g.studentId === student.id);
+      const subjects = season.subjects?.[activeGrade] || [];
       
       const failing: DecisionCandidate['failingSubjects'] = [];
       let totalNeeded = 0;
@@ -106,9 +106,9 @@ const DecisionManager: React.FC<Props> = ({ season, onUpdate }) => {
   };
 
   const alreadyDetermined = useMemo(() => {
-    return season.students.filter(s => {
+    return (season.students || []).filter(s => {
       if (s.grade !== activeGrade) return false;
-      return season.grades.some(g => g.studentId === s.id && g.decisionApplied !== undefined);
+      return (season.grades || []).some(g => g.studentId === s.id && g.decisionApplied !== undefined);
     });
   }, [season, activeGrade]);
 
@@ -131,13 +131,13 @@ const DecisionManager: React.FC<Props> = ({ season, onUpdate }) => {
              onClick={() => setDecisionAmount(5)}
              className={`px-8 py-3 rounded-2xl font-black transition-all ${decisionAmount === 5 ? 'bg-white text-blue-600 shadow-md scale-105' : 'text-slate-400 hover:text-slate-600'}`}
            >
-             قرار الـ 5 درجات
+             قرار الـ {toArabicNums(5)} درجات
            </button>
            <button 
              onClick={() => setDecisionAmount(10)}
              className={`px-8 py-3 rounded-2xl font-black transition-all ${decisionAmount === 10 ? 'bg-white text-blue-600 shadow-md scale-105' : 'text-slate-400 hover:text-slate-600'}`}
            >
-             قرار الـ 10 درجات
+             قرار الـ {toArabicNums(10)} درجات
            </button>
         </div>
       </div>
@@ -174,7 +174,7 @@ const DecisionManager: React.FC<Props> = ({ season, onUpdate }) => {
         {/* قائمة المرشحين */}
         <div className="bg-white p-8 rounded-[3rem] border border-gray-100 shadow-sm">
           <h3 className="text-xl font-black text-slate-800 mb-8 flex items-center gap-3">
-             <Users className="text-blue-600" /> مرشحو النجاح بقرار ({candidates.length})
+             <Users className="text-blue-600" /> مرشحو النجاح بقرار ({toArabicNums(candidates.length)})
           </h3>
 
           <div className="space-y-6">
@@ -185,9 +185,9 @@ const DecisionManager: React.FC<Props> = ({ season, onUpdate }) => {
                 <div className="flex justify-between items-start mb-6">
                   <div>
                     <h4 className="font-black text-slate-800 text-lg">{c.student.name}</h4>
-                    <p className="text-xs font-bold text-slate-400">شعبة: {c.student.section} | مكمل بـ {c.failingSubjects.length} مواد</p>
+                    <p className="text-xs font-bold text-slate-400">شعبة: {c.student.section} | مكمل بـ {toArabicNums(c.failingSubjects.length)} مواد</p>
                   </div>
-                  <div className="bg-blue-600 text-white px-4 py-1.5 rounded-full text-xs font-black">يحتاج {c.totalNeeded} درجات</div>
+                  <div className="bg-blue-600 text-white px-4 py-1.5 rounded-full text-xs font-black">يحتاج {toArabicNums(c.totalNeeded)} درجات</div>
                 </div>
 
                 <div className="space-y-3 mb-8">
@@ -195,9 +195,9 @@ const DecisionManager: React.FC<Props> = ({ season, onUpdate }) => {
                     <div key={sub.subjectId} className="flex justify-between items-center bg-white p-3 rounded-xl border border-slate-100">
                        <span className="text-xs font-black text-slate-600">{sub.subjectName}</span>
                        <div className="flex items-center gap-3">
-                         <span className="text-xs font-bold text-red-500 line-through">{sub.currentGrade}</span>
+                         <span className="text-xs font-bold text-red-500 line-through">{toArabicNums(sub.currentGrade)}</span>
                          <ArrowRightCircle size={14} className="text-blue-400" />
-                         <span className="text-sm font-black text-emerald-600">50</span>
+                         <span className="text-sm font-black text-emerald-600">{toArabicNums(50)}</span>
                        </div>
                     </div>
                   ))}
@@ -207,7 +207,7 @@ const DecisionManager: React.FC<Props> = ({ season, onUpdate }) => {
                   onClick={() => applyDecision(c)}
                   className="w-full py-4 bg-blue-600 text-white rounded-2xl font-black shadow-lg hover:bg-blue-700 transition-all flex items-center justify-center gap-3"
                 >
-                  <Star size={18} /> تطبيق قرار الـ {decisionAmount} درجات
+                  <Star size={18} /> تطبيق قرار الـ {toArabicNums(decisionAmount)} درجات
                 </button>
               </div>
             ))}
@@ -217,7 +217,7 @@ const DecisionManager: React.FC<Props> = ({ season, onUpdate }) => {
         {/* قائمة المطبق عليهم القرار */}
         <div className="bg-white p-8 rounded-[3rem] border border-gray-100 shadow-sm">
            <h3 className="text-xl font-black text-slate-800 mb-8 flex items-center gap-3">
-             <CheckCircle2 className="text-emerald-600" /> الذين شملهم القرار ({alreadyDetermined.length})
+             <CheckCircle2 className="text-emerald-600" /> الذين شملهم القرار ({toArabicNums(alreadyDetermined.length)})
            </h3>
 
            <div className="space-y-4">
@@ -234,7 +234,7 @@ const DecisionManager: React.FC<Props> = ({ season, onUpdate }) => {
                        </div>
                        <div>
                          <p className="font-black text-slate-800">{s.name}</p>
-                         <p className="text-[10px] font-bold text-emerald-600 uppercase">تمت إضافة {totalDec} درجات قرار</p>
+                         <p className="text-[10px] font-bold text-emerald-600 uppercase">تمت إضافة {toArabicNums(totalDec)} درجات قرار</p>
                        </div>
                     </div>
                     <button 

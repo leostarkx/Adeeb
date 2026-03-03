@@ -102,6 +102,18 @@ export interface GoogleDriveConfig {
   fileName: string;
 }
 
+export type UserRole = 'principal' | 'assistant' | 'teacher' | 'student';
+
+export interface User {
+  id: string;
+  username: string;
+  password?: string; // In a real app, this would be hashed
+  name: string;
+  role: UserRole;
+  linkedId?: string; // Teacher ID or Student ID
+  permissions?: string[]; // For assistants: ['dashboard', 'attendance', etc.]
+}
+
 export interface AppState {
   schoolName: string;
   seasons: Season[];
@@ -110,6 +122,8 @@ export interface AppState {
   theme: ThemeType;
   themeConfig?: Record<ThemeType, ThemeSettings>;
   driveConfig?: GoogleDriveConfig;
+  users: User[];
+  currentUser: User | null;
 }
 
 export const GRADE_NAMES: Record<number, string> = {

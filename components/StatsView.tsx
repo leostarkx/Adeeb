@@ -12,6 +12,7 @@ import {
   BarChart3, PieChart as PieIcon, Activity, Target,
   ChevronDown, Filter
 } from 'lucide-react';
+import { toArabicNums } from '../utils/calculations';
 
 interface Props {
   season: Season;
@@ -24,22 +25,23 @@ const StatsView: React.FC<Props> = ({ season }) => {
 
   // 1. حسابات الطلاب العامة
   const studentStats = useMemo(() => {
-    const total = season.students.length;
-    const active = season.students.filter(s => s.status === 'active' || !s.status).length;
-    const dismissed = season.students.filter(s => s.status === 'dismissed').length;
+    const students = season.students || [];
+    const total = students.length;
+    const active = students.filter(s => s.status === 'active' || !s.status).length;
+    const dismissed = students.filter(s => s.status === 'dismissed').length;
     return { total, active, dismissed };
   }, [season.students]);
 
   // 2. تحليل مستويات الطلاب (الهرم الدراسي)
   const levelDistribution = useMemo(() => {
-    const grades = season.grades.filter(g => g.finalResult !== undefined);
+    const grades = (season.grades || []).filter(g => g.finalResult !== undefined);
     const levels = [
-      { name: 'امتياز (90-100)', range: [90, 100], count: 0, color: '#059669' },
-      { name: 'جيد جداً (80-89)', range: [80, 89], count: 0, color: '#10b981' },
-      { name: 'جيد (70-79)', range: [70, 79], count: 0, color: '#3b82f6' },
-      { name: 'متوسط (60-69)', range: [60, 69], count: 0, color: '#f59e0b' },
-      { name: 'مقبول (50-59)', range: [50, 59], count: 0, color: '#6366f1' },
-      { name: 'راسب (تحت 50)', range: [0, 49], count: 0, color: '#ef4444' },
+      { name: `امتياز (${toArabicNums(90)}-${toArabicNums(100)})`, range: [90, 100], count: 0, color: '#059669' },
+      { name: `جيد جداً (${toArabicNums(80)}-${toArabicNums(89)})`, range: [80, 89], count: 0, color: '#10b981' },
+      { name: `جيد (${toArabicNums(70)}-${toArabicNums(79)})`, range: [70, 79], count: 0, color: '#3b82f6' },
+      { name: `متوسط (${toArabicNums(60)}-${toArabicNums(69)})`, range: [60, 69], count: 0, color: '#f59e0b' },
+      { name: `مقبول (${toArabicNums(50)}-${toArabicNums(59)})`, range: [50, 59], count: 0, color: '#6366f1' },
+      { name: `راسب (تحت ${toArabicNums(50)})`, range: [0, 49], count: 0, color: '#ef4444' },
     ];
 
     grades.forEach(g => {
@@ -56,8 +58,8 @@ const StatsView: React.FC<Props> = ({ season }) => {
   // 3. مقارنة الصفوف الستة
   const gradeComparison = useMemo(() => {
     return [1, 2, 3, 4, 5, 6].map(g => {
-      const studentsInGrade = season.students.filter(s => s.grade === g && s.status !== 'dismissed');
-      const gradeResults = season.grades.filter(gr => studentsInGrade.some(s => s.id === gr.studentId));
+      const studentsInGrade = (season.students || []).filter(s => s.grade === g && s.status !== 'dismissed');
+      const gradeResults = (season.grades || []).filter(gr => studentsInGrade.some(s => s.id === gr.studentId));
       const passMark = g <= 4 ? 5 : 50;
       
       const totalEntries = gradeResults.length;
@@ -80,7 +82,7 @@ const StatsView: React.FC<Props> = ({ season }) => {
     const monthNames = ['تشرين 1', 'تشرين 2', 'كانون 1', 'شباط', 'آذار', 'نيسان'];
     
     return months.map((month, idx) => {
-      const monthlyGrades = season.grades.filter(g => g.subjectId === selectedSubjectId && g[month] !== undefined);
+      const monthlyGrades = (season.grades || []).filter(g => g.subjectId === selectedSubjectId && g[month] !== undefined);
       const total = monthlyGrades.length;
       const passCount = monthlyGrades.filter(g => (Number(g[month]) || 0) >= 50).length;
       const avg = total > 0 ? Math.round(monthlyGrades.reduce((a, b) => a + (Number(b[month]) || 0), 0) / total) : 0;
@@ -119,7 +121,7 @@ const StatsView: React.FC<Props> = ({ season }) => {
                 <span className="text-[10px] font-black text-emerald-600 bg-emerald-50 px-3 py-1 rounded-full">نشط الآن</span>
               </div>
               <p className="text-[10px] font-black text-slate-400 mb-1">إجمالي طلاب المدرسة</p>
-              <h4 className="text-4xl font-black text-slate-800">{studentStats.total} <span className="text-sm font-bold text-slate-300">تلميذ</span></h4>
+              <h4 className="text-4xl font-black text-slate-800">{toArabicNums(studentStats.total)} <span className="text-sm font-bold text-slate-300">تلميذ</span></h4>
             </div>
 
             <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm">
@@ -128,7 +130,7 @@ const StatsView: React.FC<Props> = ({ season }) => {
                 <span className="text-[10px] font-black text-purple-600 bg-purple-50 px-3 py-1 rounded-full">كادر الأديب</span>
               </div>
               <p className="text-[10px] font-black text-slate-400 mb-1">الهيئة التعليمية</p>
-              <h4 className="text-4xl font-black text-slate-800">{season.teachers.length} <span className="text-sm font-bold text-slate-300">معلم</span></h4>
+              <h4 className="text-4xl font-black text-slate-800">{toArabicNums((season.teachers || []).length)} <span className="text-sm font-bold text-slate-300">معلم</span></h4>
             </div>
 
             <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm">
@@ -137,7 +139,7 @@ const StatsView: React.FC<Props> = ({ season }) => {
                 <span className="text-[10px] font-black text-amber-600 bg-amber-50 px-3 py-1 rounded-full">تحديث يومي</span>
               </div>
               <p className="text-[10px] font-black text-slate-400 mb-1">سجل الغيابات الكلي</p>
-              <h4 className="text-4xl font-black text-slate-800">{season.attendance.filter(a => a.type === 'absent').length} <span className="text-sm font-bold text-slate-300">يوم</span></h4>
+              <h4 className="text-4xl font-black text-slate-800">{toArabicNums((season.attendance || []).filter(a => a.type === 'absent').length)} <span className="text-sm font-bold text-slate-300">يوم</span></h4>
             </div>
 
             <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm">
@@ -146,7 +148,7 @@ const StatsView: React.FC<Props> = ({ season }) => {
                 <span className="text-[10px] font-black text-emerald-600 bg-emerald-50 px-3 py-1 rounded-full">نسبة عامة</span>
               </div>
               <p className="text-[10px] font-black text-slate-400 mb-1">متوسط النجاح العام</p>
-              <h4 className="text-4xl font-black text-slate-800">{gradeComparison.reduce((a, b) => a + b['نسبة النجاح'], 0) / 6 | 0}%</h4>
+              <h4 className="text-4xl font-black text-slate-800">{toArabicNums(gradeComparison.reduce((a, b) => a + b['نسبة النجاح'], 0) / 6 | 0)}%</h4>
             </div>
           </div>
 
@@ -191,9 +193,9 @@ const StatsView: React.FC<Props> = ({ season }) => {
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={gradeComparison}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                    <XAxis dataKey="name" tick={{ fontSize: 10, fontWeight: 'bold' }} />
-                    <YAxis unit="%" tick={{ fontSize: 10, fontWeight: 'bold' }} />
-                    <Tooltip contentStyle={{ borderRadius: '20px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }} />
+                    <XAxis dataKey="name" tick={{ fontSize: 10, fontWeight: 'bold' }} tickFormatter={(val) => toArabicNums(val)} />
+                    <YAxis unit="%" tick={{ fontSize: 10, fontWeight: 'bold' }} tickFormatter={(val) => toArabicNums(val)} />
+                    <Tooltip contentStyle={{ borderRadius: '20px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }} formatter={(val: number) => toArabicNums(val)} />
                     <Legend />
                     <Bar dataKey="نسبة النجاح" fill="#3b82f6" radius={[10, 10, 0, 0]} barSize={40} />
                     <Bar dataKey="المتوسط العام" fill="#8b5cf6" radius={[10, 10, 0, 0]} barSize={40} />
@@ -223,8 +225,8 @@ const StatsView: React.FC<Props> = ({ season }) => {
 
           <div className="h-[500px]">
             <ResponsiveContainer width="100%" height="100%">
-              <ComposedChart data={gradeComparison[selectedGrade - 1] ? (season.subjects[selectedGrade] || []).map(sub => {
-                const subGrades = season.grades.filter(g => g.subjectId === sub.id);
+              <ComposedChart data={gradeComparison[selectedGrade - 1] ? (season.subjects?.[selectedGrade] || []).map(sub => {
+                const subGrades = (season.grades || []).filter(g => g.subjectId === sub.id);
                 const passMark = selectedGrade <= 4 ? 5 : 50;
                 const passes = subGrades.filter(g => (g.finalResult ?? 0) >= passMark).length;
                 return {
@@ -234,9 +236,9 @@ const StatsView: React.FC<Props> = ({ season }) => {
                 };
               }) : []}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                <XAxis dataKey="name" tick={{ fontSize: 10, fontWeight: 'bold' }} />
-                <YAxis unit="%" tick={{ fontSize: 10, fontWeight: 'bold' }} />
-                <Tooltip contentStyle={{ borderRadius: '20px', border: 'none' }} />
+                <XAxis dataKey="name" tick={{ fontSize: 10, fontWeight: 'bold' }} tickFormatter={(val) => toArabicNums(val)} />
+                <YAxis unit="%" tick={{ fontSize: 10, fontWeight: 'bold' }} tickFormatter={(val) => toArabicNums(val)} />
+                <Tooltip contentStyle={{ borderRadius: '20px', border: 'none' }} formatter={(val: number) => toArabicNums(val)} />
                 <Legend />
                 <Bar dataKey="نسبة النجاح" fill="#8b5cf6" radius={[15, 15, 0, 0]} barSize={50} />
                 <Line type="monotone" dataKey="المتوسط العام" stroke="#f59e0b" strokeWidth={4} dot={{ r: 6, fill: '#f59e0b', strokeWidth: 2, stroke: '#fff' }} />
@@ -269,7 +271,7 @@ const StatsView: React.FC<Props> = ({ season }) => {
                     className="w-full p-4 bg-slate-50 border-2 border-slate-50 rounded-2xl font-black text-slate-800 outline-none focus:border-amber-500 appearance-none"
                    >
                      <option value="">-- اختر المادة --</option>
-                     {(season.subjects[selectedGrade] || []).map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                     {(season.subjects?.[selectedGrade] || []).map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                    </select>
                    <ChevronDown className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={18} />
                  </div>
@@ -287,9 +289,9 @@ const StatsView: React.FC<Props> = ({ season }) => {
                       </linearGradient>
                     </defs>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                    <XAxis dataKey="name" tick={{ fontSize: 12, fontWeight: 'bold' }} />
-                    <YAxis unit="%" tick={{ fontSize: 12, fontWeight: 'bold' }} />
-                    <Tooltip contentStyle={{ borderRadius: '25px', border: 'none' }} />
+                    <XAxis dataKey="name" tick={{ fontSize: 12, fontWeight: 'bold' }} tickFormatter={(val) => toArabicNums(val)} />
+                    <YAxis unit="%" tick={{ fontSize: 12, fontWeight: 'bold' }} tickFormatter={(val) => toArabicNums(val)} />
+                    <Tooltip contentStyle={{ borderRadius: '25px', border: 'none' }} formatter={(val: number) => toArabicNums(val)} />
                     <Legend />
                     <Area type="monotone" dataKey="نسبة النجاح" stroke="#f59e0b" strokeWidth={5} fillOpacity={1} fill="url(#colorMonth)" />
                     <Area type="monotone" dataKey="متوسط الدرجة" stroke="#3b82f6" strokeWidth={5} fillOpacity={0} />
@@ -326,7 +328,7 @@ const StatsView: React.FC<Props> = ({ season }) => {
 
       {/* تذييل بسيط للإحصائيات */}
       <div className="text-center text-slate-300 font-bold text-[10px] mt-10">
-        جميع الإحصائيات مستخرجة بناءً على البيانات المرصودة في مدرسة الأديب لموسم {season.name}
+        جميع الإحصائيات مستخرجة بناءً على البيانات المرصودة في مدرسة الأديب لموسم {toArabicNums(season.name)}
       </div>
     </div>
   );

@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { Season, Subject, GRADE_NAMES } from '../types';
 import { Plus, Trash2, Book, Layers, UserCheck } from 'lucide-react';
+import { toArabicNums } from '../utils/calculations';
 
 interface Props {
   season: Season;
@@ -15,9 +16,9 @@ const SubjectsManager: React.FC<Props> = ({ season, onUpdate }) => {
 
   const addSubject = () => {
     if (!subjectName.trim()) return;
-    const currentSubs = season.subjects[selectedGrade] || [];
+    const currentSubs = (season.subjects?.[selectedGrade]) || [];
     onUpdate({
-      subjects: { ...season.subjects, [selectedGrade]: [...currentSubs, { id: Date.now().toString(), name: subjectName }] }
+      subjects: { ...(season.subjects || {}), [selectedGrade]: [...currentSubs, { id: Date.now().toString(), name: subjectName }] }
     });
     setSubjectName('');
   };
@@ -25,7 +26,7 @@ const SubjectsManager: React.FC<Props> = ({ season, onUpdate }) => {
   const removeSubject = (subId: string) => {
     if (!confirm('حذف المادة؟')) return;
     onUpdate({
-      subjects: { ...season.subjects, [selectedGrade]: (season.subjects[selectedGrade] || []).filter(s => s.id !== subId) },
+      subjects: { ...(season.subjects || {}), [selectedGrade]: (season.subjects?.[selectedGrade] || []).filter(s => s.id !== subId) },
       grades: (season.grades || []).filter(g => g.subjectId !== subId)
     });
   };
@@ -67,7 +68,7 @@ const SubjectsManager: React.FC<Props> = ({ season, onUpdate }) => {
 
   const getAdvisorName = (secName: string) => {
     const teacherId = season.sectionAdvisors?.[selectedGrade]?.[secName];
-    return season.teachers.find(t => t.id === teacherId)?.name || 'بدون مرشد';
+    return (season.teachers || []).find(t => t.id === teacherId)?.name || 'بدون مرشد';
   };
 
   return (
@@ -92,8 +93,8 @@ const SubjectsManager: React.FC<Props> = ({ season, onUpdate }) => {
               <div key={sec} className="p-5 bg-blue-50/50 border border-blue-100 rounded-[1.5rem] flex flex-col gap-4 group transition-all hover:bg-blue-50">
                 <div className="flex justify-between items-center">
                    <div className="flex items-center gap-3">
-                     <span className="w-10 h-10 bg-white rounded-xl flex items-center justify-center font-black text-blue-600 shadow-sm">{sec}</span>
-                     <span className="font-black text-slate-800">شعبة {sec}</span>
+                     <span className="w-10 h-10 bg-white rounded-xl flex items-center justify-center font-black text-blue-600 shadow-sm">{toArabicNums(sec)}</span>
+                     <span className="font-black text-slate-800">شعبة {toArabicNums(sec)}</span>
                    </div>
                    <button type="button" onClick={() => removeSection(sec)} className="p-2 text-slate-300 hover:text-red-500 transition-colors"><Trash2 size={18} /></button>
                 </div>
@@ -108,7 +109,7 @@ const SubjectsManager: React.FC<Props> = ({ season, onUpdate }) => {
                       className="w-full bg-transparent font-black text-xs text-slate-700 outline-none cursor-pointer"
                     >
                       <option value="">-- اضغط لاختيار مرشد --</option>
-                      {season.teachers.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                      {(season.teachers || []).map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
                     </select>
                   </div>
                 </div>
@@ -124,9 +125,9 @@ const SubjectsManager: React.FC<Props> = ({ season, onUpdate }) => {
             <button type="button" onClick={addSubject} className="bg-emerald-600 text-white px-8 py-3 rounded-2xl font-bold hover:bg-emerald-700 h-[52px] shadow-lg"><Plus size={20} /></button>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {(season.subjects[selectedGrade] || []).map(sub => (
+            {(season.subjects?.[selectedGrade] || []).map(sub => (
               <div key={sub.id} className="p-4 rounded-2xl bg-gray-50 border border-gray-100 flex items-center justify-between group hover:bg-white hover:border-emerald-200 transition-all">
-                <span className="font-black text-gray-700 text-sm">{sub.name}</span>
+                <span className="font-black text-gray-700 text-sm">{toArabicNums(sub.name)}</span>
                 <button type="button" onClick={() => removeSubject(sub.id)} className="text-gray-300 hover:text-red-500 transition-colors"><Trash2 size={18} /></button>
               </div>
             ))}

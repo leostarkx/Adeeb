@@ -1,20 +1,22 @@
 
 import React, { useState, useMemo } from 'react';
-import { Season, Student, Teacher, GRADE_NAMES, TeacherAssignment, Subject } from '../types';
+import { Season, Student, Teacher, GRADE_NAMES, TeacherAssignment, Subject, AppState, User } from '../types';
 import { 
   Plus, Trash2, GraduationCap, Users, UserPlus, Search, Edit2, X,
   Baby, Home, Phone, Briefcase, FileText, Hash, UserX,
   BookOpen, Layers, Contact2, CheckCircle2, Filter, CheckSquare,
   ClipboardList, MapPin, Smartphone, UserCircle, ListPlus,
-  UsersRound, AlertCircle
+  UsersRound, AlertCircle, Key
 } from 'lucide-react';
+import { toArabicNums } from '../utils/calculations';
 
 interface Props {
   season: Season;
   onUpdate: (updates: Partial<Season>) => void;
+  setState: React.Dispatch<React.SetStateAction<AppState>>;
 }
 
-const PeopleManager: React.FC<Props> = ({ season, onUpdate }) => {
+const PeopleManager: React.FC<Props> = ({ season, onUpdate, setState }) => {
   const [activeSubTab, setActiveSubTab] = useState<'students' | 'teachers' | 'audit'>('students');
   const [isBulkMode, setIsBulkMode] = useState(false);
   const [selectedGrade, setSelectedGrade] = useState<number | null>(null);
@@ -58,6 +60,20 @@ const PeopleManager: React.FC<Props> = ({ season, onUpdate }) => {
     return [...list].sort((a, b) => a.name.localeCompare(b.name, 'ar'));
   }, [season.students, selectedGrade, selectedSection, searchTerm, activeSubTab, season.minBirthYear, season.maxBirthYear]);
 
+  const generateStudentUser = (student: Student): User => {
+    const randomPass = Math.floor(100000 + Math.random() * 900000).toString();
+    // Generate username: s + registerNumber or s + timestamp
+    const username = `s${student.registerNumber || Date.now().toString().slice(-6)}`;
+    return {
+      id: `u_${student.id}`,
+      username,
+      password: randomPass,
+      name: student.name,
+      role: 'student',
+      linkedId: student.id
+    };
+  };
+
   const saveStudent = () => {
     if (!studentForm.name?.trim() || !studentForm.section || !studentForm.birthDate) {
       alert('يرجى إكمال الاسم والشعبة وتاريخ الميلاد');
@@ -66,8 +82,13 @@ const PeopleManager: React.FC<Props> = ({ season, onUpdate }) => {
 
     if (editingStudentId) {
       onUpdate({
-        students: season.students.map(s => s.id === editingStudentId ? { ...s, ...studentForm } as Student : s)
+        students: (season.students || []).map(s => s.id === editingStudentId ? { ...s, ...studentForm } as Student : s)
       });
+      // Update user name if changed
+      setState(prev => ({
+        ...prev,
+        users: prev.users.map(u => u.linkedId === editingStudentId ? { ...u, name: studentForm.name! } : u)
+      }));
       setEditingStudentId(null);
     } else {
       const newStudent: Student = { 
@@ -75,7 +96,16 @@ const PeopleManager: React.FC<Props> = ({ season, onUpdate }) => {
         status: 'active',
         ...(studentForm as Omit<Student, 'id'>)
       };
+      
+      const newUser = generateStudentUser(newStudent);
+      
       onUpdate({ students: [...(season.students || []), newStudent] });
+      setState(prev => ({
+        ...prev,
+        users: [...prev.users, newUser]
+      }));
+      
+      alert(`تم إضافة الطالب بنجاح.\nاسم المستخدم: ${newUser.username}\nكلمة المرور: ${newUser.password}`);
     }
     
     setStudentForm({
@@ -100,30 +130,46 @@ const PeopleManager: React.FC<Props> = ({ season, onUpdate }) => {
     const defaultBirthYear = season.minBirthYear || (new Date().getFullYear() - 6);
     const defaultBirthDate = `${defaultBirthYear}-01-01`;
 
-    const newStudents: Student[] = namesArray.map((name, index) => ({
-      id: `${Date.now()}_${index}`,
-      name,
-      grade: studentForm.grade || 1,
-      section: studentForm.section || '',
-      status: 'active',
-      birthDate: defaultBirthDate,
-      parentPhone: '',
-      address: '',
-      parentJob: '',
-      registerNumber: '',
-      pageNumber: '',
-      recordNumber: ''
-    }));
+    const newStudents: Student[] = [];
+    const newUsers: User[] = [];
+
+    namesArray.forEach((name, index) => {
+      const student: Student = {
+        id: `${Date.now()}_${index}`,
+        name,
+        grade: studentForm.grade || 1,
+        section: studentForm.section || '',
+        status: 'active',
+        birthDate: defaultBirthDate,
+        parentPhone: '',
+        address: '',
+        parentJob: '',
+        registerNumber: '',
+        pageNumber: '',
+        recordNumber: ''
+      };
+      newStudents.push(student);
+      newUsers.push(generateStudentUser(student));
+    });
 
     onUpdate({ students: [...(season.students || []), ...newStudents] });
+    setState(prev => ({
+      ...prev,
+      users: [...prev.users, ...newUsers]
+    }));
+
     setBulkNames('');
     setIsBulkMode(false);
-    alert(`تمت إضافة ${namesArray.length} تلميذ بنجاح إلى الصف ${GRADE_NAMES[studentForm.grade || 1]} شعبة ${studentForm.section}`);
+    alert(`تمت إضافة ${namesArray.length} تلميذ بنجاح وتوليد حسابات دخول لهم.`);
   };
 
   const deleteStudent = (id: string) => {
-    if (confirm('حذف التلميذ نهائياً؟')) {
+    if (confirm('حذف التلميذ نهائياً؟ سيتم حذف حساب الدخول الخاص به أيضاً.')) {
       onUpdate({ students: (season.students || []).filter(s => s.id !== id) });
+      setState(prev => ({
+        ...prev,
+        users: prev.users.filter(u => u.linkedId !== id)
+      }));
     }
   };
 
@@ -160,6 +206,14 @@ const PeopleManager: React.FC<Props> = ({ season, onUpdate }) => {
   const deleteTeacher = (id: string) => {
     if (confirm('حذف المعلم نهائياً؟')) {
       onUpdate({ teachers: (season.teachers || []).filter(t => t.id !== id) });
+    }
+  };
+
+  const dismissStudent = (id: string) => {
+    if (confirm('هل أنت متأكد من تغيير حالة الطالب إلى "مفصول"؟')) {
+      onUpdate({
+        students: (season.students || []).map(s => s.id === id ? { ...s, status: 'dismissed' } : s)
+      });
     }
   };
 
@@ -217,7 +271,7 @@ const PeopleManager: React.FC<Props> = ({ season, onUpdate }) => {
 
             <div className="space-y-8">
               {/* صف اختيارات الصف والشعبة - مشترك */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 bg-slate-50/50 p-6 rounded-[2rem] border border-slate-100">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 bg-slate-50/50 p-6 rounded-[2rem] border border-slate-100">
                 <div className="lg:col-span-1">
                   <label className="block text-[10px] font-black text-slate-400 mb-2 mr-2 text-right">الصف الدراسي</label>
                   <select 
@@ -240,10 +294,24 @@ const PeopleManager: React.FC<Props> = ({ season, onUpdate }) => {
                   </select>
                 </div>
                 {!isBulkMode && (
-                   <div>
-                    <label className="block text-[10px] font-black text-slate-400 mb-2 mr-2 text-right">تاريخ الميلاد</label>
-                    <input type="date" value={studentForm.birthDate} onChange={e => setStudentForm({...studentForm, birthDate: e.target.value})} className="w-full px-5 py-4 border-2 border-white rounded-2xl font-black bg-white shadow-sm outline-none focus:border-blue-600" />
-                  </div>
+                   <>
+                    <div>
+                      <label className="block text-[10px] font-black text-slate-400 mb-2 mr-2 text-right">تاريخ الميلاد</label>
+                      <input type="date" value={studentForm.birthDate || ''} onChange={e => setStudentForm({...studentForm, birthDate: e.target.value})} className="w-full px-5 py-4 border-2 border-white rounded-2xl font-black bg-white shadow-sm outline-none focus:border-blue-600" />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-black text-slate-400 mb-2 mr-2 text-right">حالة القيد</label>
+                      <select 
+                        value={studentForm.status || 'active'} 
+                        onChange={e => setStudentForm({...studentForm, status: e.target.value as any})} 
+                        className="w-full px-5 py-4 border-2 border-white rounded-2xl font-black bg-white shadow-sm outline-none focus:border-blue-600"
+                      >
+                        <option value="active">مستمر في الدوام</option>
+                        <option value="transferred">منقول لمدرسة أخرى</option>
+                        <option value="dismissed">مفصول / تارك</option>
+                      </select>
+                    </div>
+                   </>
                 )}
               </div>
 
@@ -252,7 +320,7 @@ const PeopleManager: React.FC<Props> = ({ season, onUpdate }) => {
                   <div className="flex justify-between items-center mb-3 mr-2">
                     <label className="block text-sm font-black text-slate-700">قائمة الأسماء (اسم واحد في كل سطر)</label>
                     <div className="px-4 py-1.5 bg-blue-600 text-white rounded-full text-[10px] font-black shadow-lg">
-                      عدد الأسماء المكتشفة: {bulkNamesCount}
+                      عدد الأسماء المكتشفة: {toArabicNums(bulkNamesCount)}
                     </div>
                   </div>
                   <textarea 
@@ -271,36 +339,36 @@ const PeopleManager: React.FC<Props> = ({ season, onUpdate }) => {
                 <div className="space-y-8 animate-in slide-in-bottom">
                   <div>
                     <label className="block text-[10px] font-black text-slate-400 mb-2 mr-2 text-right">اسم التلميذ الرباعي</label>
-                    <input type="text" value={studentForm.name} onChange={e => setStudentForm({...studentForm, name: e.target.value})} className="w-full px-6 py-5 border-2 border-slate-50 rounded-[1.5rem] font-black text-xl bg-slate-50/50 outline-none focus:border-blue-600 focus:bg-white" placeholder="الاسم الكامل..." />
+                    <input type="text" value={studentForm.name || ''} onChange={e => setStudentForm({...studentForm, name: e.target.value})} className="w-full px-6 py-5 border-2 border-slate-50 rounded-[1.5rem] font-black text-xl bg-slate-50/50 outline-none focus:border-blue-600 focus:bg-white" placeholder="الاسم الكامل..." />
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 p-8 bg-slate-50 rounded-[2.5rem] border-2 border-white">
                     <div className="space-y-4 lg:col-span-3 grid grid-cols-1 md:grid-cols-3 gap-4">
                       <div>
                         <label className="block text-[10px] font-black text-slate-400 mb-2 mr-2 text-right">رقم القيد</label>
-                        <div className="relative"><Hash size={14} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-300"/><input type="text" value={studentForm.registerNumber} onChange={e => setStudentForm({...studentForm, registerNumber: e.target.value})} className="w-full pr-10 pl-4 py-3 bg-white border border-slate-100 rounded-xl font-bold" placeholder="0000"/></div>
+                        <div className="relative"><Hash size={14} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-300"/><input type="text" value={studentForm.registerNumber || ''} onChange={e => setStudentForm({...studentForm, registerNumber: e.target.value})} className="w-full pr-10 pl-4 py-3 bg-white border border-slate-100 rounded-xl font-bold" placeholder="0000"/></div>
                       </div>
                       <div>
                         <label className="block text-[10px] font-black text-slate-400 mb-2 mr-2 text-right">رقم السجل</label>
-                        <div className="relative"><ClipboardList size={14} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-300"/><input type="text" value={studentForm.recordNumber} onChange={e => setStudentForm({...studentForm, recordNumber: e.target.value})} className="w-full pr-10 pl-4 py-3 bg-white border border-slate-100 rounded-xl font-bold" placeholder="00"/></div>
+                        <div className="relative"><ClipboardList size={14} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-300"/><input type="text" value={studentForm.recordNumber || ''} onChange={e => setStudentForm({...studentForm, recordNumber: e.target.value})} className="w-full pr-10 pl-4 py-3 bg-white border border-slate-100 rounded-xl font-bold" placeholder="00"/></div>
                       </div>
                       <div>
                         <label className="block text-[10px] font-black text-slate-400 mb-2 mr-2 text-right">رقم الصفحة</label>
-                        <div className="relative"><FileText size={14} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-300"/><input type="text" value={studentForm.pageNumber} onChange={e => setStudentForm({...studentForm, pageNumber: e.target.value})} className="w-full pr-10 pl-4 py-3 bg-white border border-slate-100 rounded-xl font-bold" placeholder="00"/></div>
+                        <div className="relative"><FileText size={14} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-300"/><input type="text" value={studentForm.pageNumber || ''} onChange={e => setStudentForm({...studentForm, pageNumber: e.target.value})} className="w-full pr-10 pl-4 py-3 bg-white border border-slate-100 rounded-xl font-bold" placeholder="00"/></div>
                       </div>
                     </div>
 
                     <div>
                       <label className="block text-[10px] font-black text-slate-400 mb-2 mr-2 text-right">رقم هاتف ولي الأمر</label>
-                      <div className="relative"><Smartphone size={14} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-300"/><input type="text" value={studentForm.parentPhone} onChange={e => setStudentForm({...studentForm, parentPhone: e.target.value})} className="w-full pr-10 pl-4 py-3 bg-white border border-slate-100 rounded-xl font-bold" placeholder="07XXXXXXXXX"/></div>
+                      <div className="relative"><Smartphone size={14} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-300"/><input type="text" value={studentForm.parentPhone || ''} onChange={e => setStudentForm({...studentForm, parentPhone: e.target.value})} className="w-full pr-10 pl-4 py-3 bg-white border border-slate-100 rounded-xl font-bold" placeholder="07XXXXXXXXX"/></div>
                     </div>
                     <div>
                       <label className="block text-[10px] font-black text-slate-400 mb-2 mr-2 text-right">العنوان / السكن</label>
-                      <div className="relative"><MapPin size={14} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-300"/><input type="text" value={studentForm.address} onChange={e => setStudentForm({...studentForm, address: e.target.value})} className="w-full pr-10 pl-4 py-3 bg-white border border-slate-100 rounded-xl font-bold" placeholder="الحي / المحلة / الزقاق"/></div>
+                      <div className="relative"><MapPin size={14} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-300"/><input type="text" value={studentForm.address || ''} onChange={e => setStudentForm({...studentForm, address: e.target.value})} className="w-full pr-10 pl-4 py-3 bg-white border border-slate-100 rounded-xl font-bold" placeholder="الحي / المحلة / الزقاق"/></div>
                     </div>
                     <div>
                       <label className="block text-[10px] font-black text-slate-400 mb-2 mr-2 text-right">مهنة ولي الأمر</label>
-                      <div className="relative"><Briefcase size={14} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-300"/><input type="text" value={studentForm.parentJob} onChange={e => setStudentForm({...studentForm, parentJob: e.target.value})} className="w-full pr-10 pl-4 py-3 bg-white border border-slate-100 rounded-xl font-bold" placeholder="كاسب / موظف..."/></div>
+                      <div className="relative"><Briefcase size={14} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-300"/><input type="text" value={studentForm.parentJob || ''} onChange={e => setStudentForm({...studentForm, parentJob: e.target.value})} className="w-full pr-10 pl-4 py-3 bg-white border border-slate-100 rounded-xl font-bold" placeholder="كاسب / موظف..."/></div>
                     </div>
                   </div>
                 </div>
@@ -314,7 +382,7 @@ const PeopleManager: React.FC<Props> = ({ season, onUpdate }) => {
                   }`}
                 >
                   {isBulkMode ? <ListPlus size={24} /> : <Plus size={24} />} 
-                  {isBulkMode ? `إضافة الـ (${bulkNamesCount}) تلميذ دفعة واحدة` : (editingStudentId ? 'تحديث البيانات' : 'حفظ التلميذ')}
+                  {isBulkMode ? `إضافة الـ (${toArabicNums(bulkNamesCount)}) تلميذ دفعة واحدة` : (editingStudentId ? 'تحديث البيانات' : 'حفظ التلميذ')}
                 </button>
                 {(editingStudentId || isBulkMode) && (
                   <button 
@@ -361,11 +429,13 @@ const PeopleManager: React.FC<Props> = ({ season, onUpdate }) => {
                         <div className="flex-1 text-right">
                           <h4 className="font-black text-slate-800">{s.name}</h4>
                           <div className="flex flex-wrap gap-1 mt-2">
-                             <span className="px-3 py-1 bg-slate-100 text-[9px] font-black rounded-full text-slate-500">القيد: {s.registerNumber || '---'}</span>
+                             <span className="px-3 py-1 bg-slate-100 text-[9px] font-black rounded-full text-slate-500">القيد: {toArabicNums(s.registerNumber) || '---'}</span>
                              <span className="px-3 py-1 bg-blue-50 text-[9px] font-black rounded-full text-blue-600">الصف {GRADE_NAMES[s.grade]}-{s.section}</span>
+                             {s.status === 'transferred' && <span className="px-3 py-1 bg-amber-50 text-[9px] font-black rounded-full text-amber-600">منقول</span>}
+                             {s.status === 'dismissed' && <span className="px-3 py-1 bg-red-50 text-[9px] font-black rounded-full text-red-600">مفصول</span>}
                           </div>
                           <div className="mt-3 flex items-center gap-2 text-slate-400">
-                             <Phone size={10}/><span className="text-[9px] font-bold">{s.parentPhone || 'بدون هاتف'}</span>
+                             <Phone size={10}/><span className="text-[9px] font-bold">{toArabicNums(s.parentPhone) || 'بدون هاتف'}</span>
                           </div>
                         </div>
                       </div>
@@ -388,7 +458,7 @@ const PeopleManager: React.FC<Props> = ({ season, onUpdate }) => {
               <Baby size={32} className="text-red-600" />
               <div>
                 <h3 className="text-xl font-black text-red-800">قائمة التدقيق العمري</h3>
-                <p className="text-xs font-bold text-red-600">التلاميذ الذين يقع تاريخ ميلادهم خارج النطاق القانوني المسموح به للموسم ({season.maxBirthYear} - {season.minBirthYear})</p>
+                <p className="text-xs font-bold text-red-600">التلاميذ الذين يقع تاريخ ميلادهم خارج النطاق القانوني المسموح به للموسم ({toArabicNums(season.maxBirthYear)} - {toArabicNums(season.minBirthYear)})</p>
               </div>
            </div>
 
@@ -404,9 +474,14 @@ const PeopleManager: React.FC<Props> = ({ season, onUpdate }) => {
                        </span>
                     </div>
                     <div className="space-y-2 text-xs font-bold text-slate-500">
-                       <p className="flex justify-between">تاريخ الميلاد: <span className="text-slate-900 font-black">{s.birthDate}</span></p>
+                       <p className="flex justify-between">تاريخ الميلاد: <span className="text-slate-900 font-black">{toArabicNums(s.birthDate)}</span></p>
                        <p className="flex justify-between">الصف والشعبة: <span className="text-slate-900 font-black">{GRADE_NAMES[s.grade]} - {s.section}</span></p>
+                       <p className="flex justify-between">رقم القيد: <span className="text-slate-900 font-black">{toArabicNums(s.registerNumber) || '---'}</span></p>
                     </div>
+                    <button onClick={() => dismissStudent(s.id)} className="mt-6 w-full py-3 bg-red-50 text-red-600 rounded-2xl font-black text-xs hover:bg-red-600 hover:text-white transition-all flex items-center justify-center gap-2">
+                      <UserX size={16} />
+                      فصل الطالب
+                    </button>
                   </div>
                 );
               })}
@@ -428,8 +503,8 @@ const PeopleManager: React.FC<Props> = ({ season, onUpdate }) => {
               {editingTeacherId ? 'تعديل بيانات المعلم' : 'إضافة معلم جديد'}
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-              <input type="text" value={teacherForm.name} onChange={e => setTeacherForm({...teacherForm, name: e.target.value})} className="px-6 py-4 border-2 border-slate-50 rounded-2xl font-bold bg-slate-50/50" placeholder="اسم المعلم..." />
-              <input type="text" value={teacherForm.specialization} onChange={e => setTeacherForm({...teacherForm, specialization: e.target.value})} className="px-6 py-4 border-2 border-slate-50 rounded-2xl font-bold bg-slate-50/50" placeholder="الاختصاص..." />
+              <input type="text" value={teacherForm.name || ''} onChange={e => setTeacherForm({...teacherForm, name: e.target.value})} className="px-6 py-4 border-2 border-slate-50 rounded-2xl font-bold bg-slate-50/50" placeholder="اسم المعلم..." />
+              <input type="text" value={teacherForm.specialization || ''} onChange={e => setTeacherForm({...teacherForm, specialization: e.target.value})} className="px-6 py-4 border-2 border-slate-50 rounded-2xl font-bold bg-slate-50/50" placeholder="الاختصاص..." />
               <button onClick={saveTeacher} className="bg-purple-600 text-white rounded-2xl font-black shadow-lg hover:bg-purple-700 transition-all flex items-center justify-center gap-2"><Plus size={20} /> {editingTeacherId ? 'تحديث' : 'إضافة'}</button>
             </div>
 
@@ -440,7 +515,7 @@ const PeopleManager: React.FC<Props> = ({ season, onUpdate }) => {
                   <p className="text-xs font-bold text-slate-400 mb-6">{t.specialization || 'بدون اختصاص'}</p>
                   
                   <div className="space-y-2 mb-6">
-                     <p className="text-[10px] font-black text-slate-400 border-b pb-1">الحصص المسندة ({t.assignments?.length || 0})</p>
+                     <p className="text-[10px] font-black text-slate-400 border-b pb-1">الحصص المسندة ({toArabicNums(t.assignments?.length || 0)})</p>
                      {t.assignments?.map((as, idx) => (
                        <div key={idx} className="flex justify-between text-[10px] font-black bg-slate-50 p-2 rounded-lg">
                          <span>{GRADE_NAMES[as.gradeId]} - {as.sectionName}</span>

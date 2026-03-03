@@ -7,7 +7,7 @@ import {
   ArrowRight, BookOpen, Clock, FileText, TrendingUp, UserCircle,
   ChevronLeft, Award, UserX, Briefcase, Info
 } from 'lucide-react';
-import { formatGrade } from '../utils/calculations';
+import { formatGrade, toArabicNums } from '../utils/calculations';
 
 interface Props {
   state: AppState;
@@ -15,7 +15,7 @@ interface Props {
 
 const GraduatesView: React.FC<Props> = ({ state }) => {
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedSeasonFilter, setSelectedSeasonFilter] = useState<string>('all');
+  const [selectedSeasonFilter, setSelectedSeasonFilter] = useState<string>('');
   const [selectedRegNum, setSelectedRegNum] = useState<string | null>(null);
 
   // تجميع قائمة فريدة لكافة الطلاب الذين مروا على المدرسة عبر كافة المواسم
@@ -31,7 +31,7 @@ const GraduatesView: React.FC<Props> = ({ state }) => {
 
     // 1. إضافة الطلاب من المواسم الدراسية
     state.seasons.forEach(season => {
-      season.students.forEach(s => {
+      (season.students || []).forEach(s => {
         // نستخدم رقم القيد كمفتاح أساسي للربط، وإذا لم يوجد نستخدم الـ ID لضمان عدم ضياع أي طالب
         const key = s.registerNumber || s.id;
         const existing = studentsMap.get(key);
@@ -78,6 +78,8 @@ const GraduatesView: React.FC<Props> = ({ state }) => {
   }, [allArchivedStudents]);
 
   const filteredArchivedList = useMemo(() => {
+    if (!selectedSeasonFilter) return [];
+    
     let list = [...allArchivedStudents];
     
     // التصفية حسب الموسم
@@ -105,7 +107,7 @@ const GraduatesView: React.FC<Props> = ({ state }) => {
     
     state.seasons.forEach(season => {
       // نبحث عن الطالب برقم القيد أو بالـ ID الأصلي
-      const studentInSeason = season.students.find(s => 
+      const studentInSeason = (season.students || []).find(s => 
         (s.registerNumber && s.registerNumber === selectedRegNum) || 
         (s.id === selectedRegNum)
       );
@@ -142,7 +144,7 @@ const GraduatesView: React.FC<Props> = ({ state }) => {
           </button>
           <div className="flex items-center gap-3">
              <span className="text-[10px] font-black text-slate-400">المعرف الدراسي</span>
-             <span className="bg-slate-900 text-white px-4 py-1.5 rounded-xl font-black text-sm">{selectedRegNum}</span>
+             <span className="bg-slate-900 text-white px-4 py-1.5 rounded-xl font-black text-sm">{toArabicNums(selectedRegNum || '')}</span>
           </div>
         </div>
 
@@ -156,11 +158,11 @@ const GraduatesView: React.FC<Props> = ({ state }) => {
                 <div className="flex flex-wrap justify-center md:justify-start gap-4 mt-4">
                    <div className="flex items-center gap-2 bg-white/10 px-4 py-2 rounded-2xl border border-white/5">
                       <Hash size={16} className="text-amber-400" />
-                      <span className="text-xs font-bold">قيد: {selectedStudentBasic?.registerNumber || 'غير مسجل'}</span>
+                      <span className="text-xs font-bold">قيد: {toArabicNums(selectedStudentBasic?.registerNumber || '') || 'غير مسجل'}</span>
                    </div>
                    <div className="flex items-center gap-2 bg-white/10 px-4 py-2 rounded-2xl border border-white/5">
                       <TrendingUp size={16} className="text-emerald-400" />
-                      <span className="text-xs font-bold">المسيرة في المدرسة: {studentAcademicHistory.length} مواسم</span>
+                      <span className="text-xs font-bold">المسيرة في المدرسة: {toArabicNums(studentAcademicHistory.length)} مواسم</span>
                    </div>
                    <div className="flex items-center gap-2 bg-white/10 px-4 py-2 rounded-2xl border border-white/5">
                       <UserCheck size={16} className="text-blue-400" />
@@ -181,14 +183,14 @@ const GraduatesView: React.FC<Props> = ({ state }) => {
                         <Calendar size={20} />
                       </div>
                       <div>
-                        <h3 className="font-black text-slate-800">الموسم الدراسي {entry.seasonName}</h3>
+                        <h3 className="font-black text-slate-800">الموسم الدراسي {toArabicNums(entry.seasonName)}</h3>
                         <p className="text-[10px] font-bold text-slate-400">الصف {GRADE_NAMES[entry.studentInfo.grade]} - شعبة {entry.studentInfo.section}</p>
                       </div>
                    </div>
                    <div className="flex gap-3">
                       <div className="flex flex-col items-center px-4 py-1 bg-red-50 text-red-600 rounded-xl border border-red-100">
                          <span className="text-[8px] font-black">أيام الغياب</span>
-                         <span className="text-sm font-black">{entry.attendanceCount}</span>
+                         <span className="text-sm font-black">{toArabicNums(entry.attendanceCount)}</span>
                       </div>
                       <div className="flex flex-col items-center px-4 py-1 bg-slate-100 text-slate-600 rounded-xl border border-slate-200">
                          <span className="text-[8px] font-black">حالة التلميذ</span>
@@ -256,15 +258,21 @@ const GraduatesView: React.FC<Props> = ({ state }) => {
                   onChange={e => setSelectedSeasonFilter(e.target.value)}
                   className="w-full pr-12 pl-4 py-4 bg-slate-50 border-2 border-slate-50 rounded-2xl font-black text-slate-800 outline-none focus:border-slate-800 appearance-none shadow-sm"
                 >
+                  <option value="" disabled>-- اختر الموسم للعرض --</option>
                   <option value="all">كافة المواسم</option>
-                  {archiveSeasons.map(s => <option key={s} value={s}>موسم {s}</option>)}
+                  {archiveSeasons.map(s => <option key={s} value={s}>موسم {toArabicNums(s)}</option>)}
                 </select>
              </div>
           </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredArchivedList.length > 0 ? (
+          {!selectedSeasonFilter ? (
+             <div className="col-span-full py-24 text-center">
+                <Filter size={80} className="mx-auto text-slate-100 mb-6" />
+                <p className="text-2xl font-black text-slate-300 italic">يرجى اختيار موسم دراسي أو "كافة المواسم" لعرض الأرشيف</p>
+             </div>
+          ) : filteredArchivedList.length > 0 ? (
             filteredArchivedList.map((student) => (
               <button 
                 key={student.registerNumber || student.originalId} 
@@ -285,11 +293,11 @@ const GraduatesView: React.FC<Props> = ({ state }) => {
                 <div className="space-y-2 mt-4">
                   <div className="flex items-center gap-3 text-slate-400">
                     <Hash size={14} className="group-hover:text-slate-800" />
-                    <span className="text-xs font-bold">القيد: <span className="text-slate-800">{student.registerNumber || '---'}</span></span>
+                    <span className="text-xs font-bold">القيد: <span className="text-slate-800">{toArabicNums(student.registerNumber || '') || '---'}</span></span>
                   </div>
                   <div className="flex items-center gap-3 text-slate-400">
                     <Calendar size={14} className="group-hover:text-slate-800" />
-                    <span className="text-xs font-bold">آخر موسم: <span className="text-slate-800">{student.lastSeason}</span></span>
+                    <span className="text-xs font-bold">آخر موسم: <span className="text-slate-800">{toArabicNums(student.lastSeason)}</span></span>
                   </div>
                 </div>
 

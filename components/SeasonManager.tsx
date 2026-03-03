@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { AppState, Season } from '../types';
 import { Plus, Check, Trash2, Calendar, Pencil, X, UserCog, Baby, ShieldAlert, Copy, Edit2 } from 'lucide-react';
+import { toArabicNums } from '../utils/calculations';
 
 interface Props {
   state: AppState;
@@ -65,7 +66,7 @@ const SeasonManager: React.FC<Props> = ({ state, setState }) => {
   };
 
   const duplicateSeason = (sourceSeason: Season) => {
-    const name = prompt('أدخل اسم الموسم الجديد (مثلاً: ' + (parseInt(sourceSeason.name) + 1 || '') + '):', sourceSeason.name + ' - نسخة');
+    const name = prompt('أدخل اسم الموسم الجديد (مثلاً: ' + (toArabicNums(parseInt(sourceSeason.name) + 1) || '') + '):', sourceSeason.name + ' - نسخة');
     if (!name) return;
 
     const newSeason: Season = {
@@ -107,7 +108,7 @@ const SeasonManager: React.FC<Props> = ({ state, setState }) => {
           {editingSeasonId ? 'تعديل بيانات الموسم المختار' : 'إنشاء موسم دراسي جديد'}
         </h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <input type="text" value={newName} onChange={e => setNewName(e.target.value)} placeholder="اسم الموسم (مثلاً: 2024-2025)" className="px-6 py-4 border-2 border-white rounded-2xl bg-white font-bold outline-none focus:border-blue-600 text-black shadow-sm" />
+          <input type="text" value={newName} onChange={e => setNewName(e.target.value)} placeholder={`اسم الموسم (مثلاً: ${toArabicNums('2024-2025')})`} className="px-6 py-4 border-2 border-white rounded-2xl bg-white font-bold outline-none focus:border-blue-600 text-black shadow-sm" />
           <input type="text" value={newManager} onChange={e => setNewManager(e.target.value)} placeholder="اسم مدير المؤسسة..." className="px-6 py-4 border-2 border-white rounded-2xl bg-white font-bold outline-none focus:border-blue-600 text-black shadow-sm" />
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-6 bg-white rounded-3xl">
@@ -125,7 +126,7 @@ const SeasonManager: React.FC<Props> = ({ state, setState }) => {
           <div key={season.id} className={`p-8 rounded-[3rem] border-2 transition-all relative group ${state.activeSeasonId === season.id ? 'border-blue-500 bg-blue-50/20' : 'border-slate-50 hover:border-slate-200'}`}>
             <div className="flex justify-between items-start">
               <div>
-                <h4 className="text-xl font-black text-slate-800">{season.name}</h4>
+                <h4 className="text-xl font-black text-slate-800">{toArabicNums(season.name)}</h4>
                 <p className="text-xs text-slate-400 font-bold mb-4">المدير: {season.managerName || 'لم يحدد'}</p>
               </div>
               {state.activeSeasonId === season.id && <div className="bg-blue-600 text-white p-1.5 rounded-lg text-[8px] font-black">نشط</div>}
@@ -134,11 +135,11 @@ const SeasonManager: React.FC<Props> = ({ state, setState }) => {
             <div className="grid grid-cols-2 gap-2 mt-4">
               <div className="bg-white/50 p-2 rounded-xl text-center">
                 <p className="text-[8px] text-slate-400 font-black">طلاب</p>
-                <p className="text-sm font-black text-slate-700">{season.students?.length || 0}</p>
+                <p className="text-sm font-black text-slate-700">{toArabicNums(season.students?.length || 0)}</p>
               </div>
               <div className="bg-white/50 p-2 rounded-xl text-center">
                 <p className="text-[8px] text-slate-400 font-black">معلمون</p>
-                <p className="text-sm font-black text-slate-700">{season.teachers?.length || 0}</p>
+                <p className="text-sm font-black text-slate-700">{toArabicNums(season.teachers?.length || 0)}</p>
               </div>
             </div>
 

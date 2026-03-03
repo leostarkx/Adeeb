@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { Season, Student, GRADE_NAMES, Subject, GradeRecord } from '../types';
-import { formatGrade, getPrimaryResult } from '../utils/calculations';
+import { formatGrade, getPrimaryResult, toArabicNums } from '../utils/calculations';
 import { 
   Printer, ArrowRight, Search, FileText, CheckSquare, Square, 
   ChevronRight, Trophy, AlertCircle, Bookmark
@@ -77,7 +77,7 @@ const CertificatesCenter: React.FC<Props> = ({ season, schoolName }) => {
               </div>
               <div className="text-center">
                 <p className="text-sm font-black underline underline-offset-4">وثيقة درجات تلميذ رسمية</p>
-                <p className="text-[9px] mt-1">للعام الدراسي {season.name}</p>
+                <p className="text-[9px] mt-1">للعام الدراسي {toArabicNums(season.name)}</p>
               </div>
               <div className="text-left leading-tight">
                 <p className="text-sm">التلميذ: {student.name}</p>
@@ -126,8 +126,8 @@ const CertificatesCenter: React.FC<Props> = ({ season, schoolName }) => {
                   ))}
                   <tr className="bg-slate-100 font-black h-8">
                     <td className="border-2 border-black text-center text-[9px]">المجموع</td>
-                    <td colSpan={11} className="border-2 border-black text-center text-xs">{Math.round(totalFinal)}</td>
-                    <td className="border-2 border-black text-center text-[9px]">{Math.round(totalFinal)}</td>
+                    <td colSpan={11} className="border-2 border-black text-center text-xs">{toArabicNums(Math.round(totalFinal))}</td>
+                    <td className="border-2 border-black text-center text-[9px]">{toArabicNums(Math.round(totalFinal))}</td>
                   </tr>
                 </tbody>
              </table>
@@ -152,7 +152,7 @@ const CertificatesCenter: React.FC<Props> = ({ season, schoolName }) => {
          <div className="flex justify-between items-center mb-2 text-[10px] font-black border-b-2 border-slate-800 pb-1 px-4">
             <p>مدرسة: {schoolName}</p>
             <p className="text-base text-blue-800">شهادة تقديرية</p>
-            <p>موسم: {season.name}</p>
+            <p>موسم: {toArabicNums(season.name)}</p>
          </div>
          
          <div className="my-1">
@@ -208,7 +208,7 @@ const CertificatesCenter: React.FC<Props> = ({ season, schoolName }) => {
           </button>
           <div className="flex items-center gap-4">
              <div className="bg-blue-50 text-blue-700 px-6 py-2 rounded-xl text-[10px] font-black border border-blue-100">
-                سيتم طباعة {selectedStudents.length} شهادة في {Math.ceil(selectedStudents.length / 2)} ورقة A4.
+                سيتم طباعة {toArabicNums(selectedStudents.length)} شهادة في {toArabicNums(Math.ceil(selectedStudents.length / 2))} ورقة A4.
              </div>
              <button onClick={handlePrint} className="bg-emerald-600 text-white px-10 py-3 rounded-2xl font-black shadow-lg flex items-center gap-2 hover:bg-emerald-700 transition-all">
                 <Printer size={22} /> طباعة الآن
@@ -336,7 +336,7 @@ const CertificatesCenter: React.FC<Props> = ({ season, schoolName }) => {
                   </div>
                   <div>
                     <p className="font-black text-slate-800 text-sm leading-tight">{s.name}</p>
-                    <p className="text-[10px] font-bold text-slate-400 mt-1">شعبة {s.section} | قيد {s.registerNumber || '---'}</p>
+                    <p className="text-[10px] font-bold text-slate-400 mt-1">شعبة {s.section} | قيد {toArabicNums(s.registerNumber) || '---'}</p>
                   </div>
                 </div>
                 <ChevronRight size={16} className={`text-slate-200 group-hover:text-blue-600 transition-colors ${selectedStudentIds.includes(s.id) ? 'text-blue-600' : ''}`} />
@@ -354,7 +354,7 @@ const CertificatesCenter: React.FC<Props> = ({ season, schoolName }) => {
               </div>
               <div>
                 <p className="text-xl font-black">جاهز للمعاينة؟</p>
-                <p className="text-xs text-slate-400 font-bold">تم اختيار ({selectedStudentIds.length}) تلميذ من أصل ({filteredStudents.length})</p>
+                <p className="text-xs text-slate-400 font-bold">تم اختيار ({toArabicNums(selectedStudentIds.length)}) تلميذ من أصل ({toArabicNums(filteredStudents.length)})</p>
               </div>
            </div>
            <button 

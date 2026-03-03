@@ -1,18 +1,44 @@
 
 import React, { useState, useMemo } from 'react';
-import { Season, GradeRecord, GRADE_NAMES, Subject } from '../types';
-import { calculateGrades, formatGrade } from '../utils/calculations';
+import { Season, GradeRecord, GRADE_NAMES, Subject, User as AppUser } from '../types';
+import { calculateGrades, formatGrade, toArabicNums } from '../utils/calculations';
 import { Bookmark, Filter, AlertCircle, CalendarDays, Award, UserX, Search } from 'lucide-react';
 
 interface Props {
   season: Season;
   onUpdate: (updates: Partial<Season>) => void;
+  currentUser: AppUser | null;
 }
 
-const GradeEntry: React.FC<Props> = ({ season, onUpdate }) => {
-  const [selectedGrade, setSelectedGrade] = useState<number>(1);
-  const [selectedSection, setSelectedSection] = useState<string>('');
-  const [selectedSubjectId, setSelectedSubjectId] = useState<string>('');
+const GradeEntry: React.FC<Props> = ({ season, onUpdate, currentUser }) => {
+  const isStudent = currentUser?.role === 'student';
+  const isTeacher = currentUser?.role === 'teacher';
+  const studentId = currentUser?.linkedId;
+  const teacherId = currentUser?.linkedId;
+
+  const teacherAssignments = useMemo(() => {
+    if (!isTeacher || !teacherId) return [];
+    const teacher = season.teachers.find(t => t.id === teacherId);
+    return teacher?.assignments || [];
+  }, [isTeacher, teacherId, season.teachers]);
+
+  const [selectedGrade, setSelectedGrade] = useState<number>(() => {
+    if (isStudent) return (season.students || []).find(s => s.id === studentId)?.grade || 1;
+    if (isTeacher && teacherAssignments.length > 0) return teacherAssignments[0].gradeId;
+    return 1;
+  });
+
+  const [selectedSection, setSelectedSection] = useState<string>(() => {
+    if (isStudent) return (season.students || []).find(s => s.id === studentId)?.section || '';
+    if (isTeacher && teacherAssignments.length > 0) return teacherAssignments[0].sectionName;
+    return '';
+  });
+
+  const [selectedSubjectId, setSelectedSubjectId] = useState<string>(() => {
+    if (isTeacher && teacherAssignments.length > 0) return teacherAssignments[0].subjectId;
+    return '';
+  });
+
   const [searchTerm, setSearchTerm] = useState('');
   const [entryMode, setEntryMode] = useState<'midyear' | 'final'>('midyear');
 
@@ -20,15 +46,25 @@ const GradeEntry: React.FC<Props> = ({ season, onUpdate }) => {
 
   const filteredStudents = useMemo(() => {
     let list = (season.students || []).filter(s => s.grade === selectedGrade && s.section === selectedSection);
+    if (isStudent) {
+      list = list.filter(s => s.id === studentId);
+    }
     if (searchTerm) {
       list = list.filter(s => s.name.includes(searchTerm) || s.registerNumber?.includes(searchTerm));
     }
     return list;
-  }, [season.students, selectedGrade, selectedSection, searchTerm]);
+  }, [season.students, selectedGrade, selectedSection, searchTerm, isStudent, studentId]);
 
   const subjects = useMemo(() => {
-    return season.subjects?.[selectedGrade] || [];
-  }, [season.subjects, selectedGrade]);
+    const allSubjects = season.subjects?.[selectedGrade] || [];
+    if (isTeacher) {
+      const assignedSubjectIds = teacherAssignments
+        .filter(a => a.gradeId === selectedGrade && a.sectionName === selectedSection)
+        .map(a => a.subjectId);
+      return allSubjects.filter(s => assignedSubjectIds.includes(s.id));
+    }
+    return allSubjects;
+  }, [season.subjects, selectedGrade, isTeacher, teacherAssignments, selectedSection]);
 
   const handleGradeChange = (studentId: string, field: keyof GradeRecord, value: string) => {
     const student = (season.students || []).find(s => s.id === studentId);
@@ -76,32 +112,81 @@ const GradeEntry: React.FC<Props> = ({ season, onUpdate }) => {
 
   return (
     <div className="space-y-8 animate-in fade-in">
-      <div className="bg-white p-8 rounded-3xl shadow-sm border border-gray-100 grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div>
-          <label className="block text-sm font-bold text-gray-500 mb-3 text-right">الصف الدراسي</label>
-          <div className="grid grid-cols-3 gap-2">
-            {[1, 2, 3, 4, 5, 6].map(g => (
-              <button key={g} onClick={() => {setSelectedGrade(g); setSelectedSection(''); setSelectedSubjectId(''); setSearchTerm('');}} className={`py-2 rounded-xl font-black text-xs transition-all ${selectedGrade === g ? 'bg-blue-600 text-white shadow-md' : 'bg-gray-50 text-gray-500 hover:bg-gray-100'}`}>
-                {GRADE_NAMES[g]}
-              </button>
-            ))}
+      {!isStudent && !isTeacher && (
+        <div className="bg-white p-8 rounded-3xl shadow-sm border border-gray-100 grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div>
+            <label className="block text-sm font-bold text-gray-500 mb-3 text-right">الصف الدراسي</label>
+            <div className="grid grid-cols-3 gap-2">
+              {[1, 2, 3, 4, 5, 6].map(g => (
+                <button key={g} onClick={() => {setSelectedGrade(g); setSelectedSection(''); setSelectedSubjectId(''); setSearchTerm('');}} className={`py-2 rounded-xl font-black text-xs transition-all ${selectedGrade === g ? 'bg-blue-600 text-white shadow-md' : 'bg-gray-50 text-gray-500 hover:bg-gray-100'}`}>
+                  {GRADE_NAMES[g]}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div>
+            <label className="block text-sm font-bold text-gray-500 mb-3 text-right">الشعبة</label>
+            <select value={selectedSection} onChange={e => {setSelectedSection(e.target.value); setSearchTerm('');}} className="w-full px-5 py-3 border border-gray-200 rounded-2xl outline-none font-black text-slate-900 bg-white">
+              <option value="">اختر الشعبة...</option>
+              {(season.sections?.[selectedGrade] || []).map(s => <option key={s} value={s}>شعبة {s}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-bold text-gray-500 mb-3 text-right">المادة الدراسية</label>
+            <select value={selectedSubjectId} onChange={e => setSelectedSubjectId(e.target.value)} className="w-full px-5 py-3 border border-gray-200 rounded-2xl outline-none font-black text-slate-900 bg-white">
+              <option value="">اختر المادة...</option>
+              {subjects.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+            </select>
           </div>
         </div>
-        <div>
-          <label className="block text-sm font-bold text-gray-500 mb-3 text-right">الشعبة</label>
-          <select value={selectedSection} onChange={e => {setSelectedSection(e.target.value); setSearchTerm('');}} className="w-full px-5 py-3 border border-gray-200 rounded-2xl outline-none font-black text-slate-900 bg-white">
-            <option value="">اختر الشعبة...</option>
-            {(season.sections?.[selectedGrade] || []).map(s => <option key={s} value={s}>شعبة {s}</option>)}
-          </select>
+      )}
+
+      {isTeacher && (
+        <div className="bg-white p-8 rounded-3xl shadow-sm border border-gray-100 grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div>
+            <label className="block text-sm font-bold text-gray-500 mb-3 text-right">الصفوف المعينة لك</label>
+            <div className="grid grid-cols-3 gap-2">
+              {Array.from(new Set(teacherAssignments.map(a => a.gradeId))).map((g: number) => (
+                <button key={g} onClick={() => {setSelectedGrade(g); setSelectedSection(''); setSelectedSubjectId(''); setSearchTerm('');}} className={`py-2 rounded-xl font-black text-xs transition-all ${selectedGrade === g ? 'bg-blue-600 text-white shadow-md' : 'bg-gray-50 text-gray-500 hover:bg-gray-100'}`}>
+                  {GRADE_NAMES[g]}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div>
+            <label className="block text-sm font-bold text-gray-500 mb-3 text-right">الشعبة</label>
+            <select value={selectedSection} onChange={e => {setSelectedSection(e.target.value); setSearchTerm('');}} className="w-full px-5 py-3 border border-gray-200 rounded-2xl outline-none font-black text-slate-900 bg-white">
+              <option value="">اختر الشعبة...</option>
+              {Array.from(new Set(teacherAssignments.filter(a => a.gradeId === selectedGrade).map(a => a.sectionName))).map((s: string) => <option key={s} value={s}>شعبة {s}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-bold text-gray-500 mb-3 text-right">المادة</label>
+            <select value={selectedSubjectId} onChange={e => setSelectedSubjectId(e.target.value)} className="w-full px-5 py-3 border border-gray-200 rounded-2xl outline-none font-black text-slate-900 bg-white">
+              <option value="">اختر المادة...</option>
+              {subjects.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+            </select>
+          </div>
         </div>
-        <div>
-          <label className="block text-sm font-bold text-gray-500 mb-3 text-right">المادة الدراسية</label>
-          <select value={selectedSubjectId} onChange={e => setSelectedSubjectId(e.target.value)} className="w-full px-5 py-3 border border-gray-200 rounded-2xl outline-none font-black text-slate-900 bg-white">
-            <option value="">اختر المادة...</option>
-            {subjects.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-          </select>
+      )}
+
+      {isStudent && (
+        <div className="bg-white p-8 rounded-3xl shadow-sm border border-gray-100">
+          <div className="flex flex-col md:flex-row justify-between items-center gap-4">
+            <div className="text-right">
+              <h3 className="text-xl font-black text-slate-800">درجاتي الدراسية</h3>
+              <p className="text-sm text-slate-500 font-bold">الصف {GRADE_NAMES[selectedGrade]} - شعبة {selectedSection}</p>
+            </div>
+            <div className="w-full md:w-64">
+              <label className="block text-xs font-bold text-gray-400 mb-2 text-right">اختر المادة للمشاهدة</label>
+              <select value={selectedSubjectId} onChange={e => setSelectedSubjectId(e.target.value)} className="w-full px-5 py-3 border border-gray-200 rounded-2xl outline-none font-black text-slate-900 bg-white">
+                <option value="">اختر المادة...</option>
+                {subjects.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+              </select>
+            </div>
+          </div>
         </div>
-      </div>
+      )}
 
       {isPrimary && (
         <div className="flex flex-col md:flex-row gap-4">
@@ -127,7 +212,7 @@ const GradeEntry: React.FC<Props> = ({ season, onUpdate }) => {
         <div className="bg-white rounded-[2rem] shadow-sm border border-gray-100 overflow-hidden">
           <div className="bg-slate-800 p-6 flex flex-col md:flex-row justify-between items-center text-white gap-4">
              <div className="flex items-center gap-4">
-                <span className="text-xs bg-white/10 px-4 py-2 rounded-full font-black">طلاب الشعبة: {filteredStudents.length}</span>
+                <span className="text-xs bg-white/10 px-4 py-2 rounded-full font-black">طلاب الشعبة: {toArabicNums(filteredStudents.length)}</span>
                 <h3 className="font-black flex items-center gap-2">
                   <Bookmark className="text-blue-400" />
                   رصد {isPrimary ? (entryMode === 'midyear' ? 'درجات نصف السنة' : 'درجات نهاية السنة') : 'الدرجات'} لمادة: {subjects.find(s => s.id === selectedSubjectId)?.name}
@@ -153,7 +238,7 @@ const GradeEntry: React.FC<Props> = ({ season, onUpdate }) => {
                   {isPrimary ? (
                     <>
                       <th className="px-4 py-5 text-center bg-blue-50/50">الدرجة (من 10)</th>
-                      <th className="px-4 py-5 text-center bg-orange-50/50">الدور الثاني</th>
+                      {!isStudent && <th className="px-4 py-5 text-center bg-orange-50/50">الدور الثاني</th>}
                     </>
                   ) : (
                     <>
@@ -169,7 +254,7 @@ const GradeEntry: React.FC<Props> = ({ season, onUpdate }) => {
                       <th className="px-3 py-5 text-center bg-purple-50">السعي</th>
                       <th className="px-3 py-5 text-center bg-red-50">النهائي</th>
                       <th className="px-3 py-5 text-center bg-indigo-50">الدور 1</th>
-                      <th className="px-4 py-5 text-center bg-orange-100 font-black">الدور 2</th>
+                      {!isStudent && <th className="px-4 py-5 text-center bg-orange-100 font-black">الدور 2</th>}
                     </>
                   )}
                   <th className="px-6 py-5 text-center bg-slate-900 text-white min-w-[100px]">النتيجة</th>
@@ -187,54 +272,56 @@ const GradeEntry: React.FC<Props> = ({ season, onUpdate }) => {
                         <div className="flex items-center gap-2">
                           {isDismissed && <UserX size={14} className="text-red-500" />}
                           <span className={isDismissed ? 'text-red-900' : ''}>{student.name}</span>
-                          <span className="text-[10px] text-slate-400 font-bold mr-2">#{student.registerNumber || '---'}</span>
+                          {!isStudent && <span className="text-[10px] text-slate-400 font-bold mr-2">#{toArabicNums(student.registerNumber) || '---'}</span>}
                         </div>
                       </td>
                       
                       {isPrimary ? (
                         <>
                           <td className={`px-4 py-2 text-center ${entryMode === 'midyear' ? 'bg-blue-50/20' : 'bg-emerald-50/20'}`}>
-                            <input 
-                              disabled={isDismissed}
-                              type="number" step="0.5" min="0" max="10" 
-                              value={getGradeValue(student.id, primaryField) ?? ''} 
-                              onChange={e => handleGradeChange(student.id, primaryField, e.target.value)} 
-                              className={`w-24 text-center py-3 border-2 rounded-xl font-black text-lg outline-none focus:ring-2 text-slate-900 bg-white ${isDismissed ? 'opacity-20 cursor-not-allowed' : ''} ${
-                                entryMode === 'midyear' ? 'border-blue-200 focus:border-blue-500' : 'border-emerald-200 focus:border-emerald-500'
-                              }`}
-                              placeholder={isDismissed ? "مفصول" : "-"}
-                            />
+                            {isStudent ? (
+                              <span className="text-xl font-black text-slate-900">{formatGrade(getGradeValue(student.id, primaryField) as number)}</span>
+                            ) : (
+                              <input 
+                                disabled={isDismissed}
+                                type="number" step="0.5" min="0" max="10" 
+                                value={getGradeValue(student.id, primaryField) ?? ''} 
+                                onChange={e => handleGradeChange(student.id, primaryField, e.target.value)} 
+                                className={`w-24 text-center py-3 border-2 rounded-xl font-black text-lg outline-none focus:ring-2 text-slate-900 bg-white ${isDismissed ? 'opacity-20 cursor-not-allowed' : ''} ${
+                                  entryMode === 'midyear' ? 'border-blue-200 focus:border-blue-500' : 'border-emerald-200 focus:border-emerald-500'
+                                }`}
+                                placeholder={isDismissed ? "مفصول" : "-"}
+                              />
+                            )}
                           </td>
-                          <td className="px-4 py-2 bg-orange-50/20 text-center">
-                            <input 
-                              disabled={isDismissed}
-                              type="number" step="0.5" min="0" max="10" 
-                              value={getGradeValue(student.id, 'secondRound') ?? ''} 
-                              onChange={e => handleGradeChange(student.id, 'secondRound', e.target.value)} 
-                              className={`w-24 text-center py-3 border-2 border-orange-200 rounded-xl font-black text-lg outline-none focus:border-orange-500 text-slate-900 bg-white ${isDismissed ? 'opacity-20 cursor-not-allowed' : ''}`}
-                              placeholder={isDismissed ? "مفصول" : "-"}
-                            />
-                          </td>
+                          {!isStudent && (
+                            <td className="px-4 py-2 bg-orange-50/20 text-center">
+                              <input 
+                                disabled={isDismissed}
+                                type="number" step="0.5" min="0" max="10" 
+                                value={getGradeValue(student.id, 'secondRound') ?? ''} 
+                                onChange={e => handleGradeChange(student.id, 'secondRound', e.target.value)} 
+                                className={`w-24 text-center py-3 border-2 border-orange-200 rounded-xl font-black text-lg outline-none focus:border-orange-500 text-slate-900 bg-white ${isDismissed ? 'opacity-20 cursor-not-allowed' : ''}`}
+                                placeholder={isDismissed ? "مفصول" : "-"}
+                              />
+                            </td>
+                          )}
                         </>
                       ) : (
                         <>
-                          <td className="px-1 py-2"><input disabled={isDismissed} type="number" value={getGradeValue(student.id, 'october') ?? ''} onChange={e => handleGradeChange(student.id, 'october', e.target.value)} className="w-14 text-center py-2 border rounded-lg font-bold bg-white outline-none focus:border-blue-500" /></td>
-                          <td className="px-1 py-2"><input disabled={isDismissed} type="number" value={getGradeValue(student.id, 'november') ?? ''} onChange={e => handleGradeChange(student.id, 'november', e.target.value)} className="w-14 text-center py-2 border rounded-lg font-bold bg-white outline-none focus:border-blue-500" /></td>
-                          <td className="px-1 py-2"><input disabled={isDismissed} type="number" value={getGradeValue(student.id, 'december') ?? ''} onChange={e => handleGradeChange(student.id, 'december', e.target.value)} className="w-14 text-center py-2 border rounded-lg font-bold bg-white outline-none focus:border-blue-500" /></td>
-                          {/* Assert the result as number since we are targeting numeric grade fields */}
+                          <td className="px-1 py-2">{isStudent ? formatGrade(getGradeValue(student.id, 'october') as number) : <input disabled={isDismissed} type="number" value={getGradeValue(student.id, 'october') ?? ''} onChange={e => handleGradeChange(student.id, 'october', e.target.value)} className="w-14 text-center py-2 border rounded-lg font-bold bg-white outline-none focus:border-blue-500" />}</td>
+                          <td className="px-1 py-2">{isStudent ? formatGrade(getGradeValue(student.id, 'november') as number) : <input disabled={isDismissed} type="number" value={getGradeValue(student.id, 'november') ?? ''} onChange={e => handleGradeChange(student.id, 'november', e.target.value)} className="w-14 text-center py-2 border rounded-lg font-bold bg-white outline-none focus:border-blue-500" />}</td>
+                          <td className="px-1 py-2">{isStudent ? formatGrade(getGradeValue(student.id, 'december') as number) : <input disabled={isDismissed} type="number" value={getGradeValue(student.id, 'december') ?? ''} onChange={e => handleGradeChange(student.id, 'december', e.target.value)} className="w-14 text-center py-2 border rounded-lg font-bold bg-white outline-none focus:border-blue-500" />}</td>
                           <td className="px-1 py-2 text-center font-black text-blue-700 bg-blue-50/30 text-sm">{formatGrade(getGradeValue(student.id, 'firstHalfAvg') as number)}</td>
-                          <td className="px-1 py-2 bg-amber-50/30"><input disabled={isDismissed} type="number" value={getGradeValue(student.id, 'midYearExam') ?? ''} onChange={e => handleGradeChange(student.id, 'midYearExam', e.target.value)} className="w-14 text-center py-2 border border-amber-300 rounded-lg font-black bg-white outline-none focus:border-amber-500" /></td>
-                          <td className="px-1 py-2"><input disabled={isDismissed} type="number" value={getGradeValue(student.id, 'february') ?? ''} onChange={e => handleGradeChange(student.id, 'february', e.target.value)} className="w-14 text-center py-2 border rounded-lg font-bold bg-white outline-none focus:border-blue-500" /></td>
-                          <td className="px-1 py-2"><input disabled={isDismissed} type="number" value={getGradeValue(student.id, 'march') ?? ''} onChange={e => handleGradeChange(student.id, 'march', e.target.value)} className="w-14 text-center py-2 border rounded-lg font-bold bg-white outline-none focus:border-blue-500" /></td>
-                          <td className="px-1 py-2"><input disabled={isDismissed} type="number" value={getGradeValue(student.id, 'april') ?? ''} onChange={e => handleGradeChange(student.id, 'april', e.target.value)} className="w-14 text-center py-2 border rounded-lg font-bold bg-white outline-none focus:border-blue-500" /></td>
-                          {/* Assert the result as number since we are targeting numeric grade fields */}
+                          <td className="px-1 py-2 bg-amber-50/30">{isStudent ? formatGrade(getGradeValue(student.id, 'midYearExam') as number) : <input disabled={isDismissed} type="number" value={getGradeValue(student.id, 'midYearExam') ?? ''} onChange={e => handleGradeChange(student.id, 'midYearExam', e.target.value)} className="w-14 text-center py-2 border border-amber-300 rounded-lg font-black bg-white outline-none focus:border-amber-500" />}</td>
+                          <td className="px-1 py-2">{isStudent ? formatGrade(getGradeValue(student.id, 'february') as number) : <input disabled={isDismissed} type="number" value={getGradeValue(student.id, 'february') ?? ''} onChange={e => handleGradeChange(student.id, 'february', e.target.value)} className="w-14 text-center py-2 border rounded-lg font-bold bg-white outline-none focus:border-blue-500" />}</td>
+                          <td className="px-1 py-2">{isStudent ? formatGrade(getGradeValue(student.id, 'march') as number) : <input disabled={isDismissed} type="number" value={getGradeValue(student.id, 'march') ?? ''} onChange={e => handleGradeChange(student.id, 'march', e.target.value)} className="w-14 text-center py-2 border rounded-lg font-bold bg-white outline-none focus:border-blue-500" />}</td>
+                          <td className="px-1 py-2">{isStudent ? formatGrade(getGradeValue(student.id, 'april') as number) : <input disabled={isDismissed} type="number" value={getGradeValue(student.id, 'april') ?? ''} onChange={e => handleGradeChange(student.id, 'april', e.target.value)} className="w-14 text-center py-2 border rounded-lg font-bold bg-white outline-none focus:border-blue-500" />}</td>
                           <td className="px-1 py-2 text-center font-black text-emerald-700 bg-emerald-50/30 text-sm">{formatGrade(getGradeValue(student.id, 'secondHalfAvg') as number)}</td>
-                          {/* Assert the result as number since we are targeting numeric grade fields */}
                           <td className="px-1 py-2 text-center font-black text-purple-700 bg-purple-50/30 text-sm">{formatGrade(getGradeValue(student.id, 'annualEffort') as number)}</td>
-                          <td className="px-1 py-2 bg-red-50/30"><input disabled={isDismissed} type="number" value={getGradeValue(student.id, 'finalExam') ?? ''} onChange={e => handleGradeChange(student.id, 'finalExam', e.target.value)} className="w-14 text-center py-2 border border-red-300 rounded-lg font-black bg-white outline-none focus:border-red-500" /></td>
-                          {/* Assert the result as number since we are targeting numeric grade fields */}
+                          <td className="px-1 py-2 bg-red-50/30">{isStudent ? formatGrade(getGradeValue(student.id, 'finalExam') as number) : <input disabled={isDismissed} type="number" value={getGradeValue(student.id, 'finalExam') ?? ''} onChange={e => handleGradeChange(student.id, 'finalExam', e.target.value)} className="w-14 text-center py-2 border border-red-300 rounded-lg font-black bg-white outline-none focus:border-red-500" />}</td>
                           <td className="px-1 py-2 text-center font-black text-indigo-700 bg-indigo-50 text-sm">{formatGrade(getGradeValue(student.id, 'finalGrade') as number)}</td>
-                          <td className="px-1 py-2 bg-orange-100/40"><input disabled={isDismissed} type="number" value={getGradeValue(student.id, 'secondRound') ?? ''} onChange={e => handleGradeChange(student.id, 'secondRound', e.target.value)} className="w-16 text-center py-3 border-2 border-orange-300 rounded-xl font-black bg-white outline-none focus:border-orange-600 shadow-sm" /></td>
+                          {!isStudent && <td className="px-1 py-2 bg-orange-100/40"><input disabled={isDismissed} type="number" value={getGradeValue(student.id, 'secondRound') ?? ''} onChange={e => handleGradeChange(student.id, 'secondRound', e.target.value)} className="w-16 text-center py-3 border-2 border-orange-300 rounded-xl font-black bg-white outline-none focus:border-orange-600 shadow-sm" /></td>}
                         </>
                       )}
 

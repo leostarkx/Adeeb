@@ -2,6 +2,7 @@
 import React, { useMemo, useState } from 'react';
 import { Season, Student, GRADE_NAMES } from '../types';
 import { Medal, Printer, Trophy, Star, Crown, Award, ArrowRight } from 'lucide-react';
+import { toArabicNums } from '../utils/calculations';
 
 interface Props {
   season: Season;
@@ -18,13 +19,13 @@ const HonorBoard: React.FC<Props> = ({ season, schoolName }) => {
   const [selectedStudentForCert, setSelectedStudentForCert] = useState<RankedStudent | null>(null);
 
   const topStudents = useMemo(() => {
-    const studentsInGrade = season.students.filter(s => s.grade === selectedGrade && s.status !== 'dismissed');
-    const subjectsInGrade = season.subjects[selectedGrade] || [];
+    const studentsInGrade = (season.students || []).filter(s => s.grade === selectedGrade && s.status !== 'dismissed');
+    const subjectsInGrade = season.subjects?.[selectedGrade] || [];
     
     if (subjectsInGrade.length === 0) return [];
 
     const ranked = studentsInGrade.map(student => {
-      const studentGrades = season.grades.filter(g => g.studentId === student.id);
+      const studentGrades = (season.grades || []).filter(g => g.studentId === student.id);
       const total = studentGrades.reduce((sum, g) => sum + (g.finalResult || 0), 0);
       const average = studentGrades.length > 0 ? total / subjectsInGrade.length : 0;
       
@@ -77,7 +78,7 @@ const HonorBoard: React.FC<Props> = ({ season, schoolName }) => {
                 <Trophy size={60} className="text-amber-500" />
                 <div className="text-left font-black text-xs">
                   <p>العام الدراسي</p>
-                  <p>{season.name}</p>
+                  <p>{toArabicNums(season.name)}</p>
                 </div>
               </div>
 
@@ -88,8 +89,8 @@ const HonorBoard: React.FC<Props> = ({ season, schoolName }) => {
                 <div className="relative inline-block px-12 py-4 border-b-4 border-amber-500">
                   <span className="text-4xl font-black text-slate-800">{selectedStudentForCert.name}</span>
                 </div>
-                <p className="text-2xl font-bold">وذلك لحصوله على المركز <span className="text-amber-600 font-black">({selectedStudentForCert.rank})</span> في الصف <span className="text-slate-800 font-black">({GRADE_NAMES[selectedGrade]})</span></p>
-                <p className="text-2xl font-bold">بمعدل قدره <span className="bg-amber-100 px-4 py-1 rounded-xl text-amber-700 font-black">{selectedStudentForCert.average.toFixed(1)}%</span></p>
+                <p className="text-2xl font-bold">وذلك لحصوله على المركز <span className="text-amber-600 font-black">({toArabicNums(selectedStudentForCert.rank)})</span> في الصف <span className="text-slate-800 font-black">({GRADE_NAMES[selectedGrade]})</span></p>
+                <p className="text-2xl font-bold">بمعدل قدره <span className="bg-amber-100 px-4 py-1 rounded-xl text-amber-700 font-black">{toArabicNums(selectedStudentForCert.average.toFixed(1))}%</span></p>
               </div>
 
               <p className="text-xl italic mt-10 px-20 text-slate-600">نتمنى لك دوام الموفقية والنجاح لخدمة بلدنا الحبيب وأهلك الكرام.</p>
@@ -168,13 +169,13 @@ const HonorBoard: React.FC<Props> = ({ season, schoolName }) => {
               idx === 2 ? 'bg-orange-100 text-orange-700' : 
               'bg-blue-50 text-blue-600'
             }`}>
-              {student.rank}
+              {toArabicNums(student.rank)}
             </div>
 
             <h4 className="text-xl font-black text-slate-800 mb-2">{student.name}</h4>
             <div className="bg-slate-50 px-6 py-2 rounded-full mb-6">
               <span className="text-sm font-bold text-slate-500">المعدل: </span>
-              <span className="text-xl font-black text-blue-600">{student.average.toFixed(1)}%</span>
+              <span className="text-xl font-black text-blue-600">{toArabicNums(student.average.toFixed(1))}%</span>
             </div>
 
             <button 
@@ -203,11 +204,11 @@ const HonorBoard: React.FC<Props> = ({ season, schoolName }) => {
              {topStudents.map((s) => (
                <div key={s.id} className="flex items-center justify-between p-4 border border-slate-50 rounded-2xl hover:bg-slate-50 transition-colors">
                  <div className="flex items-center gap-6">
-                    <span className="w-10 h-10 flex items-center justify-center font-black bg-slate-800 text-white rounded-xl">{s.rank}</span>
+                    <span className="w-10 h-10 flex items-center justify-center font-black bg-slate-800 text-white rounded-xl">{toArabicNums(s.rank)}</span>
                     <span className="font-black text-slate-700 text-lg">{s.name}</span>
                  </div>
                  <div className="flex items-center gap-8">
-                    <span className="font-black text-blue-600 text-xl">{s.average.toFixed(1)}%</span>
+                    <span className="font-black text-blue-600 text-xl">{toArabicNums(s.average.toFixed(1))}%</span>
                     <button onClick={() => setSelectedStudentForCert(s)} className="p-3 text-amber-500 hover:bg-amber-50 rounded-xl transition-all"><Printer size={20} /></button>
                  </div>
                </div>
